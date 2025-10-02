@@ -1,0 +1,154 @@
+// CustomDataTable.scss
+.custom-data-table{
+  //max-width: 1600px;
+  max-height: 90vh;
+  overflow: auto;
+
+  .data-table {
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+
+    th, td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid #f0f0f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    th {
+      background-color: #fafafa;
+      font-weight: 800;
+      position: relative;
+      user-select: none;
+
+      &.sortable {
+        cursor: pointer;
+
+        &:hover {
+          background-color: #f5f5f5;
+        }
+      }
+
+      &.sorted-asc,
+      &.sorted-desc {
+        background-color: #e6f7ff;
+      }
+    }
+
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .selection-column {
+      width: 40px;
+      text-align: center;
+    }
+
+    .row-checkbox {
+      cursor: pointer;
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .sort-indicator {
+        font-size: 12px;
+        color: #1890ff;
+      }
+
+    }
+
+    .group-header {
+      background-color: #f8f9fa;
+      border-left: 3px solid #1890ff;
+
+      td {
+        padding: 4px 12px;
+        border-bottom: 1px solid #e8e8e8;
+      }
+
+      .group-header-content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+
+        .group-toggle {
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 12px;
+          padding: 2px;
+          border-radius: 3px;
+
+          &:hover {
+            background-color: #e6f7ff;
+          }
+        }
+
+        .group-name {
+          color: #1890ff;
+        }
+
+        .group-count {
+          color: #666;
+          font-weight: normal;
+        }
+
+        .group-total {
+          margin-left: auto;
+          color: #52c41a;
+          font-weight: 600;
+        }
+      }
+    }
+
+    .data-row {
+      &:hover {
+        background-color: #f5f5f5;
+      }
+
+      &.selected {
+        background-color: #e6f7ff;
+      }
+
+      &.grouped {
+        background-color: #fafafa;
+        padding-left: 20px;
+      }
+    }
+
+    .data-cell {
+      .cell-content {
+        width: inherit;
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
+    .loading-cell,
+    .empty-cell {
+      text-align: center;
+      color: #666;
+      padding: 40px;
+    }
+  }
+
+}
+.column-header {
+  position: relative;
+  .drag-handle { margin-right: 6px; cursor: grab; user-select: none; }
+  &.is-dragged { opacity: 0.6; }
+  &.is-drag-over { outline: 2px dashed rgba(24,144,255,0.6); outline-offset: -2px; }
+}

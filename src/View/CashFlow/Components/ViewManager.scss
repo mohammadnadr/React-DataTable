@@ -1,0 +1,27 @@
+.view-manager {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+  
+  .view-manager-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .saved-views-list {
+    margin-top: 16px;
+    
+    h4 {
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+    }
+    
+    .ant-list-item {
+      padding: 8px 0;
+      border: none;
+    }
+  }
+}
