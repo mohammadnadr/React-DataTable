@@ -2,6 +2,18 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+# Mohammad Nadr Table Grid
+
+This is a table grid component that you can use in your React projects.
+
+## Installation
+
+To install this package, run:
+
+
+###  `npm install mohammad-nadr-table-grid`
+
+
 ## Available Scripts
 
 In the project directory, you can run:
