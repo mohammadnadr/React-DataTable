@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, message } from 'antd';
-import FilterSection from './Components/FilterSection';
 import CashFlowTable from './Components/CashFlowTable';
-import ViewManager from './Components/ViewManager';
 import { cashflowMockData } from './mockData';
 import './CashflowConsole.scss';
 
