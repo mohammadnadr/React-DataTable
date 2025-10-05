@@ -141,6 +141,26 @@
   }
 }
 
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+.modal-content-wrapper {
+  .modal-description {
+    margin-bottom: 16px;
+    color: #666;
+  }
+
+  .custom-input,
+  .custom-select {
+    width: 100%;
+  }
+
+}
+
 // Animations
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -198,7 +218,6 @@
     width: 100%;
   }
 }
-
 // For very small screens
 @media (max-width: 360px) {
   .custom-modal {

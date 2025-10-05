@@ -1,39 +1,10 @@
 // CashFlowTable.jsx
 import React, { useState, useMemo, useRef } from 'react';
-import { Tag, Space, Button, Input, Select, Tooltip, message } from 'antd';
-import { DownloadOutlined, ReloadOutlined, CloseOutlined, SettingOutlined , SaveOutlined } from '@ant-design/icons';
-import CustomDataTable from './CustomDataTable';
-import ContextMenu from './ContextMenu';
+import { Tag, Tooltip, } from 'antd';
 import './CashFlowTable.scss';
-import Modal from './Modal';
-import * as XLSX from 'xlsx'; // Import XLSX library for Excel export
-
-const { Option } = Select;
+import GenericDataTable from "../../../components/GenericDataTable";
 
 const CashFlowTable = ({ data, loading, currentView }) => {
-  const [selectedRows, setSelectedRows] = useState([]);
-  const [contextMenu, setContextMenu] = useState({
-    visible: false,
-    x: 0,
-    y: 0,
-    rows: [],
-    clickedRow: null,
-    type: null, // 'header' or 'row'
-    columnKey: null // for header context menu
-  });
-  const [groupModalVisible, setGroupModalVisible] = useState(false);
-  const [addToGroupModalVisible, setAddToGroupModalVisible] = useState(false);
-  const [columnsModalVisible, setColumnsModalVisible] = useState(false);
-  const [saveViewModalVisible, setSaveViewModalVisible] = useState(false);
-  const [groupName, setGroupName] = useState('');
-  const [selectedGroup, setSelectedGroup] = useState('');
-  const [rowsToGroup, setRowsToGroup] = useState([]);
-  const [availableGroups, setAvailableGroups] = useState([]);
-  const [viewName, setViewName] = useState('');
-  const [selectedColumns, setSelectedColumns] = useState([]);
-  const [columnOrder, setColumnOrder] = useState([]);
-
-  const tableRef = useRef(null);
 
   // Get status color mapping
   const getStatusColor = (status) => {
@@ -75,242 +46,8 @@ const CashFlowTable = ({ data, loading, currentView }) => {
     return colors[status] || 'default';
   };
 
-  // Handle context menu for rows and headers
-  const handleContextMenu = (event, rows, clickedRow, type = 'row', columnKey = null) => {
-    event.preventDefault();
-    setContextMenu({
-      visible: true,
-      x: event.clientX,
-      y: event.clientY,
-      rows: rows,
-      clickedRow: clickedRow,
-      type: type,
-      columnKey: columnKey
-    });
-
-    // Update available groups when context menu opens for rows
-    if (type === 'row' && tableRef.current) {
-      setAvailableGroups(tableRef.current.getAvailableGroups());
-    }
-  };
-
-  const handleCloseContextMenu = () => {
-    setContextMenu({
-      visible: false,
-      x: 0,
-      y: 0,
-      rows: [],
-      clickedRow: null,
-      type: null,
-      columnKey: null
-    });
-  };
-
-  // Action handlers
-  const handleSplitCashFlow = (rows) => {
-    console.log('Split cash flow for :', rows);
-    // Implement view details logic here
-  };
-
-  const handleDrillDown = (rows) => {
-    console.log('Drill down for:', rows);
-    // Implement drill down logic here
-  };
-
-  // Handle group by column (header context menu)
-  const handleGroupByColumn = (columnKey) => {
-    if (tableRef.current) {
-      tableRef.current.groupByColumn(columnKey);
-    }
-    handleCloseContextMenu();
-  };
-
-  // Handle ungroup by column
-  const handleUngroupByColumn = (columnKey) => {
-    if (tableRef.current) {
-      tableRef.current.ungroupByColumn(columnKey);
-    }
-    handleCloseContextMenu();
-  };
-
-  // Handle column aggregation (sum, average)
-  const handleAggregateColumn = (columnKey, operation) => {
-    if (tableRef.current) {
-      tableRef.current.aggregateColumn(columnKey, operation);
-    }
-    handleCloseContextMenu();
-  };
-
-  // Handle show columns modal
-  const handleShowColumnsModal = () => {
-    // Get current columns state from table
-    if (tableRef.current) {
-      const currentState = tableRef.current.getColumnsState();
-      setSelectedColumns(currentState.selectedColumns);
-      setColumnOrder(currentState.columnOrder);
-    }
-    setColumnsModalVisible(true);
-    handleCloseContextMenu();
-  };
-
-  // Handle save view modal
-  const handleShowSaveViewModal = () => {
-    setSaveViewModalVisible(true);
-    handleCloseContextMenu();
-  };
-
-  // Handle save view
-  const handleSaveView = () => {
-    if (viewName.trim() && tableRef.current) {
-      const viewData = tableRef.current.getCurrentView();
-
-      // Save to localStorage (replace with API call later)
-      const savedViews = JSON.parse(localStorage.getItem('cashflowViews') || '[]');
-      const newView = {
-        id: `view-${Date.now()}`,
-        name: viewName.trim(),
-        ...viewData,
-        createdAt: new Date().toISOString()
-      };
-
-      savedViews.push(newView);
-      localStorage.setItem('cashflowViews', JSON.stringify(savedViews));
-
-      setSaveViewModalVisible(false);
-      setViewName('');
-      message.success('View saved successfully');
-    }
-  };
-
-  // Handle load view
-  const handleLoadView = (viewId) => {
-    const savedViews = JSON.parse(localStorage.getItem('cashflowViews') || '[]');
-    const view = savedViews.find(v => v.id === viewId);
-    if (view && tableRef.current) {
-      tableRef.current.applyView(view);
-      message.success(`View "${view.name}" loaded successfully`);
-    }
-  };
-
-  // Handle new group creation (for manual grouping)
-  const handleCreateNewGroup = (rows) => {
-    setRowsToGroup(rows);
-    setGroupModalVisible(true);
-    handleCloseContextMenu();
-  };
-
-  // Handle add to existing group
-  const handleAddToExistingGroup = (rows) => {
-    setRowsToGroup(rows);
-    setAddToGroupModalVisible(true);
-    handleCloseContextMenu();
-  };
-
-  const handleConfirmNewGroup = () => {
-    if (groupName.trim() && tableRef.current) {
-      tableRef.current.createGroup(groupName.trim(), rowsToGroup);
-      setGroupModalVisible(false);
-      setGroupName('');
-      setRowsToGroup([]);
-      message.success(`Group "${groupName}" created successfully`);
-    }
-  };
-
-  const handleConfirmAddToGroup = () => {
-    if (selectedGroup && tableRef.current) {
-      tableRef.current.addToGroup(selectedGroup, rowsToGroup);
-      setAddToGroupModalVisible(false);
-      setSelectedGroup('');
-      setRowsToGroup([]);
-      const group = availableGroups.find(g => g.id === selectedGroup);
-      message.success(`Added to group "${group?.name}" successfully`);
-    }
-  };
-
-  const handleCancelGroup = () => {
-    setGroupModalVisible(false);
-    setAddToGroupModalVisible(false);
-    setGroupName('');
-    setSelectedGroup('');
-    setRowsToGroup([]);
-  };
-
-  // Handle remove from group
-  const handleRemoveFromGroup = (row) => {
-    if (row._groupId && tableRef.current) {
-      tableRef.current.removeFromGroup(row._groupId, row.id);
-      message.success('Removed from group successfully');
-    }
-  };
-
-  // Handle export to Excel - Export ALL data to Excel file
-  const handleExport = async () => {
-    try {
-      // Show loading message
-      message.loading('Preparing Excel file...', 0);
-
-      // Get current visible columns from the table
-      const columnsState = tableRef.current?.getColumnsState();
-      const visibleColumns = columnsState?.selectedColumns || [];
-
-      // Filter and map columns to get only visible ones with their titles
-      const exportColumns = allColumns
-        .filter(col => visibleColumns.includes(col.key))
-        .map(col => ({
-          key: col.key,
-          title: col.title
-        }));
-
-      // Prepare data for export - use ALL data (not just displayed/processed data)
-      const exportData = data.map(row => {
-        const exportRow = {};
-
-        exportColumns.forEach(col => {
-          let value = row[col.key];
-
-          // Format values based on column type
-          if (col.key.includes('Amount') || col.key === 'price') {
-            value = value ? `$${Number(value).toLocaleString()}` : '-';
-          } else if (col.key === 'premiumDiscount') {
-            value = value || 0;
-          } else if (col.key === 'costPercentage') {
-            value = value ? `${value}%` : '0%';
-          } else if (col.key.includes('Date') && value) {
-            value = new Date(value).toLocaleDateString();
-          } else if (typeof value === 'number') {
-            value = value.toLocaleString();
-          }
-
-          exportRow[col.title] = value || '-';
-        });
-
-        return exportRow;
-      });
-
-      // Create workbook and worksheet
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(exportData);
-
-      // Add worksheet to workbook
-      XLSX.utils.book_append_sheet(wb, ws, 'CashFlow Data');
-
-      // Generate Excel file and trigger download
-      const fileName = `cashflow_export_${new Date().toISOString().split('T')[0]}.xlsx`;
-      XLSX.writeFile(wb, fileName);
-
-      // Hide loading message and show success
-      message.destroy();
-      message.success(`Exported ${exportData.length} records successfully`);
-
-    } catch (error) {
-      console.error('Export error:', error);
-      message.destroy();
-      message.error('Failed to export data');
-    }
-  };
-
   // Define all columns
-  const allColumns = useMemo(
+  const columns  = useMemo(
     () => [
       {
         key: 'cashflowNumber',
@@ -603,6 +340,15 @@ const CashFlowTable = ({ data, loading, currentView }) => {
     []
   );
 
+    // Action handlers
+    const handleSplitCashFlow = (rows) => {
+        console.log('Split cash flow for :', rows);
+        // Implement view details logic here
+    };
+    const handleDrillDown = (rows) => {
+        console.log('Drill down for:', rows);
+        // Implement drill down logic here
+    };
   // Define custom slots for columns
   const slots = useMemo(
     () => ({
@@ -712,366 +458,40 @@ const CashFlowTable = ({ data, loading, currentView }) => {
     []
   );
 
-  // Handle sorting
-  const handleSort = (key, direction) => {
-    console.log('Sorting by:', key, direction);
-    // Sorting is handled internally in CustomDataTable
-  };
+    const contextMenuActions = {
+        rowActions: (rows, clickedRow) => [
+            {
+                label: 'Split Cash Flow',
+                onClick: () => handleSplitCashFlow(clickedRow)
+            },
+            {
+                label: 'Drill Down',
+                onClick: () => handleDrillDown(clickedRow)
+            }
+        ]
+    };
 
-  const handleRefresh = async () => {
-    console.log('Refreshing data...');
-    // Implement refresh logic here
-    message.info('Refreshing data...');
-  };
+    const handleRefresh = () => {
+        // Your refresh logic
+    };
 
-  // Filter columns based on current view
-  const filteredColumns = useMemo(() => {
-    if (currentView && currentView.columns) {
-      return allColumns.filter((col) => currentView.columns.includes(col.key));
-    }
-    return allColumns;
-  }, [allColumns, currentView]);
-
-  // Prepare context menu actions based on context (header vs row)
-  const getContextMenuActions = () => {
-    const actions = [];
-    const rows = contextMenu.rows;
-    const clickedRow = contextMenu.clickedRow;
-    const isHeaderMenu = contextMenu.type === 'header';
-    const columnKey = contextMenu.columnKey;
-
-    if (isHeaderMenu) {
-      const column = allColumns.find(col => col.key === columnKey);
-      // Best Fit
-      actions.push({
-        label: tableRef.current?.isBestFitEnabled() ? 'Disable Best Fit' : 'Enable Best Fit',
-        onClick: () => tableRef.current?.toggleBestFit()
-      });
-
-      // Group by actions
-      actions.push({
-        label: `Group by ${column?.title}`,
-        onClick: () => handleGroupByColumn(columnKey)
-      });
-
-      // Ungroup action if currently grouped by this column
-      actions.push({
-        label: `Ungroup by ${column?.title}`,
-        onClick: () => handleUngroupByColumn(columnKey)
-      });
-
-      // Aggregation actions for numeric columns
-      if (column?.type === 'number') {
-        actions.push({
-          label: `Sum ${column?.title}`,
-          onClick: () => handleAggregateColumn(columnKey, 'sum')
-        });
-        actions.push({
-          label: `Average ${column?.title}`,
-          onClick: () => handleAggregateColumn(columnKey, 'average')
-        });
-      }
-    }
-
-
-
-    // Row-specific actions
-    if (!isHeaderMenu) {
-      const isMultiple = rows.length > 1;
-      const isGroupedItem = clickedRow?._isGroupedItem;
-      const hasExistingGroups = availableGroups.length > 0;
-
-      actions.push(
-        {
-          label: 'Split Cash Flow',
-          onClick: () => handleSplitCashFlow(rows)
-        },
-        {
-          label: 'Drill Down',
-          onClick: () => handleDrillDown(rows)
-        }
-      );
-
-      // Group actions for multiple selection
-      if (isMultiple) {
-        actions.push({
-          label: 'Create New Group',
-          onClick: () => handleCreateNewGroup(rows)
-        });
-
-        if (hasExistingGroups) {
-          actions.push({
-            label: 'Add to Existing Group',
-            onClick: () => handleAddToExistingGroup(rows)
-          });
-        }
-      }
-
-      // Remove from group action for grouped items
-      if (isGroupedItem) {
-        actions.push({
-          label: 'Remove from Group',
-          onClick: () => handleRemoveFromGroup(clickedRow)
-        });
-      }
-    }
-
-    return actions;
-  };
-
-  // Get saved views from localStorage
-  const savedViews = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem('cashflowViews') || '[]');
-    } catch (error) {
-      console.error('Error loading saved views:', error);
-      return [];
-    }
-  }, []);
-
+    const handleExport = (data, selectedRows) => {
+        // Custom export logic if needed
+    };
   return (
-    <div className="cashflow-table">
-      <div className="table-toolbar">
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
-            Refresh
-          </Button>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={handleExport}
-            disabled={data.length === 0} // Disable if no data
-          >
-            Export ({data.length}) {/* Show total record count */}
-          </Button>
-          <Button
-            icon={<SaveOutlined />}
-            onClick={handleShowSaveViewModal}
-            disabled={data.length === 0} // Disable if no data
-          >Save Current View</Button>
-          <Button
-            icon={<SettingOutlined />}
-            onClick={handleShowColumnsModal}
-            disabled={data.length === 0} // Disable if no data
-          >Show/Hide Columns</Button>
-
-          {/* Saved Views Dropdown */}
-          {savedViews.length > 0 && (
-            <Select
-              placeholder="Load Saved View"
-              style={{ width: 200 }}
-              onChange={handleLoadView}
-            >
-              {savedViews.map(view => (
-                <Option key={view.id} value={view.id}>
-                  {view.name}
-                </Option>
-              ))}
-            </Select>
-          )}
-        </Space>
-
-        <div className="table-info">
-          Showing {data.length} records
-          {selectedRows.length > 0 && ` (${selectedRows.length} selected)`}
-        </div>
-      </div>
-
-      <CustomDataTable
-        ref={tableRef}
-        data={data}
-        columns={filteredColumns}
-        allColumns={allColumns}
-        loading={loading}
-        selection={true}
-        onSelectionChange={setSelectedRows}
-        onSort={handleSort}
-        onContextMenu={handleContextMenu}
-        slots={slots}
-        rowClassName="cashflow-row"
-        stickyHeader={true}
+      <GenericDataTable
+          data={data}
+          columns={columns}
+          loading={loading}
+          title="Cash Flow"
+          onRefresh={handleRefresh}
+          onExport={handleExport}
+          contextMenuActions={contextMenuActions}
+          slots={slots}
+          enableGrouping={true}
+          enableAggregation={true}
+          enableColumnReordering={true}
       />
-
-      {/* Context Menu */}
-      {contextMenu.visible && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={handleCloseContextMenu}
-          actions={getContextMenuActions()}
-        />
-      )}
-
-      {/* Create New Group Modal */}
-      <Modal
-        open={groupModalVisible}
-        onClose={handleCancelGroup}
-        title="Create New Group"
-        onSubmit={handleConfirmNewGroup}
-        submitLabel="Create Group"
-        cancelLabel="Cancel"
-        persistent={false}
-        maxWidth={500}
-      >
-        <div className="modal-content-wrapper">
-          <p className="modal-description">
-            Enter a name for the new group containing {rowsToGroup.length} items:
-          </p>
-          <Input
-            placeholder="Group name"
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            onPressEnter={handleConfirmNewGroup}
-            autoFocus
-            className="custom-input"
-          />
-        </div>
-      </Modal>
-
-      {/* Add to Existing Group Modal */}
-      <Modal
-        open={addToGroupModalVisible}
-        onClose={handleCancelGroup}
-        title="Add to Existing Group"
-        showDefaultActions={true}
-        onSubmit={handleConfirmAddToGroup}
-        submitLabel="Apply"
-        cancelLabel="Cancel"
-        persistent={false}
-        maxWidth={500}
-      >
-        <div className="modal-content-wrapper">
-          <p className="modal-description">
-            Select a group to add {rowsToGroup.length} items:
-          </p>
-          <Select
-            placeholder="Select group"
-            style={{ width: '100%' }}
-            value={selectedGroup}
-            onChange={setSelectedGroup}
-            className="custom-select"
-          >
-            {availableGroups.map((group) => (
-              <Option key={group.id} value={group.id}>
-                {group.name} ({group.count} items)
-              </Option>
-            ))}
-          </Select>
-        </div>
-      </Modal>
-
-      {/* Columns Configuration Modal */}
-      <Modal
-        open={columnsModalVisible}
-        onClose={() => setColumnsModalVisible(false)}
-        title="Configure Columns"
-        onSubmit={() => {
-          if (tableRef.current) {
-            tableRef.current.updateColumns(selectedColumns, columnOrder);
-          }
-          setColumnsModalVisible(false);
-          message.success('Columns updated successfully');
-        }}
-        submitLabel='Apply'
-        persistent={true}
-        maxWidth={800}
-      >
-        <div className="modal-content-wrapper">
-          <p className="modal-description">
-            Select and reorder columns to display in the table:
-          </p>
-
-          <div className="columns-configuration">
-            <div className="columns-list">
-              {allColumns.map((column) => {
-                const id = `col-${column.key}`;
-                const checked = selectedColumns.includes(column.key);
-
-                // helper: toggle function
-                const toggle = () => {
-                  if (!checked) {
-                    setSelectedColumns((prev) => [...prev, column.key]);
-                  } else {
-                    setSelectedColumns((prev) => prev.filter((key) => key !== column.key));
-                  }
-                };
-
-                return (
-                  <label
-                    key={column.key}
-                    // نکته: htmlFor را برمی‌داریم تا رفتار پیش‌فرضِ لیبل فعال نشود
-                    // htmlFor={id}
-                    className={`column-item clickable ${checked ? 'is-checked' : ''}`}
-                    onClick={(e) => {
-                      // بسیار مهم: جلوگیری از رفتار پیش‌فرض لیبل که باعث دوبار-تاگل می‌شود
-                      e.preventDefault();
-                      toggle();
-                    }}
-                    onKeyDown={(e) => {
-                      // دسترسی‌پذیری: Space/Enter هم toggle کند
-                      if (e.key === ' ' || e.key === 'Enter') {
-                        e.preventDefault();
-                        toggle();
-                      }
-                    }}
-                    role="checkbox"
-                    aria-checked={checked}
-                    tabIndex={0} // کل آیتم فوکوس‌پذیر
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <input
-                      id={id}
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) => {
-                        // اگر مستقیماً روی خود input کلیک شد، همین‌جا هندل می‌کنیم
-                        if (e.target.checked) {
-                          setSelectedColumns((prev) => [...prev, column.key]);
-                        } else {
-                          setSelectedColumns((prev) => prev.filter((key) => key !== column.key));
-                        }
-                      }}
-                      style={{ marginRight: 8, pointerEvents: 'auto' }}
-                    />
-                    <span className="column-title">{column.title}</span>
-                    <span className="column-type">{column.type}</span>
-                  </label>
-                );
-              })}
-            </div>
-
-
-            {/* (Optional) If you later want drag-reorder inside modal, you can add a DnD list here
-          and, on drop, update `setColumnOrder(newOrderKeys)` directly. */}
-          </div>
-        </div>
-      </Modal>
-
-      {/* Save View Modal */}
-      <Modal
-        open={saveViewModalVisible}
-        onClose={() => setSaveViewModalVisible(false)}
-        title="Save Current View"
-        onSubmit={handleSaveView}
-        submitLabel="Save View"
-        cancelLabel="Cancel"
-        persistent={false}
-        maxWidth={500}
-      >
-        <div className="modal-content-wrapper">
-          <p className="modal-description">
-            Enter a name for this view configuration:
-          </p>
-          <Input
-            placeholder="View name"
-            value={viewName}
-            onChange={(e) => setViewName(e.target.value)}
-            onPressEnter={handleSaveView}
-            autoFocus
-            className="custom-input"
-          />
-        </div>
-      </Modal>
-    </div>
   );
 };
 

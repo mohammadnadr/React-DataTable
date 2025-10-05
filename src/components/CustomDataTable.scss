@@ -1,7 +1,7 @@
 // CustomDataTable.scss
 .custom-data-table{
   //max-width: 1600px;
-  max-height: 90vh;
+  max-height: 80vh;
   overflow: auto;
 
   .data-table {
@@ -12,13 +12,18 @@
     font-size: 14px;
 
     th, td {
+      transition: background-color 0.2s;
       padding: 8px 12px;
       text-align: left;
       border-bottom: 1px solid #f0f0f0;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
+
+
+      &:hover {
+        background-color: #fafafa !important;
+      }    }
 
     th {
       background-color: #fafafa;
@@ -146,9 +151,11 @@
   }
 
 }
+
 .column-header {
   position: relative;
   .drag-handle { margin-right: 6px; cursor: grab; user-select: none; }
   &.is-dragged { opacity: 0.6; }
-  &.is-drag-over { outline: 2px dashed rgba(24,144,255,0.6); outline-offset: -2px; }
+  &.is-drag-over { border-left: 3px dashed rgba(24, 144, 255, 0.6);
+    outline: none; }
 }

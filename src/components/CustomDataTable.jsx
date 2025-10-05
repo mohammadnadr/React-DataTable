@@ -7,7 +7,6 @@ import { CaretDownOutlined,CaretRightOutlined ,SortAscendingOutlined,SortDescend
 const CustomDataTable = forwardRef(({
                                       data = [],
                                       columns = [],
-                                      allColumns = [],
                                       loading = false,
                                       selection = false,
                                       onSelectionChange = () => {},
@@ -15,7 +14,10 @@ const CustomDataTable = forwardRef(({
                                       onContextMenu = null,
                                       slots = {},
                                       rowClassName = '',
-                                      stickyHeader = false
+                                      stickyHeader = false,
+                                      enableGrouping = true,
+                                      enableAggregation = true,
+                                      enableColumnReordering = true
                                     }, ref) => {
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
@@ -27,10 +29,9 @@ const CustomDataTable = forwardRef(({
   const [columnOrder, setColumnOrder] = useState(columns.map(col => col.key));
   const [bestFitEnabled, setBestFitEnabled] = useState(false);
 
-
   const [draggedColKey, setDraggedColKey] = useState(null);
   const [dragOverColKey, setDragOverColKey] = useState(null);
-  const dragActiveRef = useRef(false); // prevent accidental sort clicks right after drop
+  const dragActiveRef = useRef(false);
 
   // Process and sort data
   const processedData = useMemo(() => {
@@ -61,6 +62,8 @@ const CustomDataTable = forwardRef(({
 
   // Grouping helpers
   const groupDataByColumn = (columnKey) => {
+    if (!enableGrouping) return;
+    
     const groups = {};
     processedData.forEach(item => {
       const groupValue = item[columnKey] || 'Unknown';
@@ -74,7 +77,7 @@ const CustomDataTable = forwardRef(({
       columnKey: columnKey,
       items: items,
       count: items.length,
-      totalAmount: items.reduce((sum, item) => sum + (item.extendedAmount || 0), 0)
+      totalAmount: items.reduce((sum, item) => sum + (item.amount || item.extendedAmount || 0), 0)
     }));
 
     setColumnGroups(prev => ({ ...prev, [columnKey]: newGroups }));
@@ -89,7 +92,9 @@ const CustomDataTable = forwardRef(({
   };
 
   const calculateAggregation = (columnKey, operation) => {
-    const column = allColumns.find(col => col.key === columnKey);
+    if (!enableAggregation) return;
+    
+    const column = columns.find(col => col.key === columnKey);
     if (!column || column.type !== 'number') return;
 
     let result;
@@ -111,7 +116,7 @@ const CustomDataTable = forwardRef(({
     }));
   };
 
-  // Display data ..................................................
+  // Display data
   const displayData = useMemo(() => {
     const flattened = [];
 
@@ -149,11 +154,11 @@ const CustomDataTable = forwardRef(({
 
   // Visible & ordered columns
   const displayColumns = useMemo(() => {
-    const filtered = allColumns.filter(col => visibleColumns.includes(col.key));
+    const filtered = columns.filter(col => visibleColumns.includes(col.key));
     return filtered.sort((a, b) => columnOrder.indexOf(a.key) - columnOrder.indexOf(b.key));
-  }, [allColumns, visibleColumns, columnOrder]);
+  }, [columns, visibleColumns, columnOrder]);
 
-  // Selection .....................................................
+  // Selection
   const handleRowSelect = (rowId, checked) => {
     if (!rowId || rowId.toString().startsWith('group-')) return;
     const newSelection = new Set(selectedRows);
@@ -175,9 +180,8 @@ const CustomDataTable = forwardRef(({
     }
   };
 
-  // Sorting click (guarded if drag just happened)
+  // Sorting
   const handleSort = (key) => {
-    // Prevent accidental sort immediately after dropping a header
     if (dragActiveRef.current) return;
 
     let direction = 'asc';
@@ -206,19 +210,23 @@ const CustomDataTable = forwardRef(({
     setExpandedGroups(newExpandedGroups);
   };
 
-  // Manual grouping  ..............................................
+  // Manual grouping
   const handleCreateGroup = (groupName, rows) => {
+    if (!enableGrouping) return;
+    
     const newGroup = {
       id: `manual-group-${Date.now()}`,
       name: groupName,
       items: rows,
       count: rows.length,
-      totalAmount: rows.reduce((sum, item) => sum + (item.extendedAmount || 0), 0)
+      totalAmount: rows.reduce((sum, item) => sum + (item.amount || item.extendedAmount || 0), 0)
     };
     setGroupedData(prev => [...prev, newGroup]);
   };
 
   const handleAddToGroup = (groupId, rows) => {
+    if (!enableGrouping) return;
+    
     setGroupedData(prev =>
       prev.map(group =>
         group.id === groupId
@@ -226,7 +234,7 @@ const CustomDataTable = forwardRef(({
             ...group,
             items: [...group.items, ...rows],
             count: group.items.length + rows.length,
-            totalAmount: group.totalAmount + rows.reduce((sum, item) => sum + (item.extendedAmount || 0), 0)
+            totalAmount: group.totalAmount + rows.reduce((sum, item) => sum + (item.amount || item.extendedAmount || 0), 0)
           }
           : group
       )
@@ -243,7 +251,7 @@ const CustomDataTable = forwardRef(({
               ...group,
               items: newItems,
               count: newItems.length,
-              totalAmount: newItems.reduce((sum, item) => sum + (item.extendedAmount || 0), 0)
+              totalAmount: newItems.reduce((sum, item) => sum + (item.amount || item.extendedAmount || 0), 0)
             };
           }
           return group;
@@ -258,23 +266,25 @@ const CustomDataTable = forwardRef(({
     setColumnOrder(newColumnOrder);
   };
 
-  // NEW: DnD handlers for headers
+  // DnD handlers for headers
   const onHeaderDragStart = (e, colKey) => {
-    // mark drag start
+    if (!enableColumnReordering) return;
+    
     setDraggedColKey(colKey);
-    dragActiveRef.current = true; // drag is active
-    // Set drag data for Firefox compatibility
+    dragActiveRef.current = true;
     try { e.dataTransfer.setData('text/plain', colKey); } catch {}
-    // Optional: customize drag image if needed
   };
 
   const onHeaderDragOver = (e, overKey) => {
-    // allow drop
+    if (!enableColumnReordering) return;
+    
     e.preventDefault();
     if (overKey !== dragOverColKey) setDragOverColKey(overKey);
   };
 
   const onHeaderDrop = (e, dropTargetKey) => {
+    if (!enableColumnReordering) return;
+    
     e.preventDefault();
     const fromKey = draggedColKey;
     const toKey = dropTargetKey;
@@ -282,12 +292,10 @@ const CustomDataTable = forwardRef(({
     setDraggedColKey(null);
 
     if (!fromKey || !toKey || fromKey === toKey) {
-      // reset dragActive flag after a tick
       setTimeout(() => (dragActiveRef.current = false), 0);
       return;
     }
 
-    // Rebuild columnOrder by moving fromKey before toKey
     setColumnOrder(prev => {
       const next = [...prev].filter(k => k !== fromKey);
       const toIndex = next.indexOf(toKey);
@@ -295,7 +303,6 @@ const CustomDataTable = forwardRef(({
       return next;
     });
 
-    // Prevent immediate sort after drop
     setTimeout(() => (dragActiveRef.current = false), 0);
   };
 
@@ -336,7 +343,7 @@ const CustomDataTable = forwardRef(({
     isBestFitEnabled: () => bestFitEnabled
   }));
 
-  // Cell renderers  ................................................
+  // Cell renderers
   const renderCellContent = (row, column) => {
     const value = row[column.key];
     const slot = slots[column.key];
@@ -345,7 +352,7 @@ const CustomDataTable = forwardRef(({
 
     let displayValue = value;
     if (column.type === 'number' && typeof value === 'number') {
-      displayValue = column.key.includes('Amount') || column.key.includes('price')
+      displayValue = column.key.includes('Amount') || column.key.includes('price') || column.key.includes('amount')
         ? `$${value.toLocaleString()}`
         : value.toLocaleString();
     } else if (column.type === 'date' && value) {
@@ -360,7 +367,7 @@ const CustomDataTable = forwardRef(({
     );
   };
 
-  // Group header  ..................................................
+  // Group header
   const renderGroupHeader = (row) => {
     const isColumnGroup = row._isColumnGroupHeader;
     const isExpanded = expandedGroups.has(row.id);
@@ -392,15 +399,14 @@ const CustomDataTable = forwardRef(({
     setBestFitEnabled(prev => !prev);
   };
 
-  // Reset best fit when columns change
   useEffect(() => {
     setBestFitEnabled(false);
   }, [visibleColumns, columnOrder]);
 
-  // Cell content style based on best fit
   const getCellContentStyle = () => {
     return bestFitEnabled ? { width: 'auto', minWidth: 'fit-content' } : {};
   };
+
   return (
     <div className="custom-data-table">
       <table className="data-table">
@@ -429,22 +435,19 @@ const CustomDataTable = forwardRef(({
                 className={`column-header ${column.sortable ? 'sortable' : ''} ${
                   sortConfig.key === column.key ? `sorted-${sortConfig.direction}` : ''
                 } ${isDragged ? 'is-dragged' : ''} ${isDragOver ? 'is-drag-over' : ''}`}
-                // Sorting click (guard after DnD)
                 onClick={() => column.sortable && handleSort(column.key)}
                 onContextMenu={(e) => onContextMenu && handleContextMenu(e, null, 'header', column.key)}
-                // NEW: enable native HTML5 drag-n-drop
-                draggable
-                onDragStart={(e) => onHeaderDragStart(e, column.key)}
-                onDragOver={(e) => onHeaderDragOver(e, column.key)}
-                onDrop={(e) => onHeaderDrop(e, column.key)}
-                onDragEnd={onHeaderDragEnd}
+                draggable={enableColumnReordering}
+                onDragStart={(e) => enableColumnReordering && onHeaderDragStart(e, column.key)}
+                onDragOver={(e) => enableColumnReordering && onHeaderDragOver(e, column.key)}
+                onDrop={(e) => enableColumnReordering && onHeaderDrop(e, column.key)}
+                onDragEnd={enableColumnReordering ? onHeaderDragEnd : undefined}
               >
                 <div className="header-content">
-                  {/* Optional: small drag handle icon area (still whole th is draggable) */}
-                  <span className="drag-handle" aria-hidden="true">⋮⋮</span>
-
+                  {enableColumnReordering && (
+                    <span className="drag-handle" aria-hidden="true">⋮⋮</span>
+                  )}
                   <span className="column-title">{column.title}</span>
-
                   {column.sortable && (
                     <span className="sort-indicator">
                         {sortConfig.key === column.key
@@ -454,8 +457,7 @@ const CustomDataTable = forwardRef(({
                           : '↕'}
                       </span>
                   )}
-
-                  {columnAggregations[column.key] && (
+                  {enableAggregation && columnAggregations[column.key] && (
                     <Tooltip
                       title={`${columnAggregations[column.key].operation}: ${columnAggregations[column.key].formattedValue}`}
                       placement="top"
