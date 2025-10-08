@@ -1,6 +1,6 @@
 // CustomDataTable.jsx
 import React, { useEffect, useState, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
-import { Tooltip, Tag } from 'antd';
+import { Tooltip, Tag, Button } from 'antd';
 import './CustomDataTable.scss';
 import { CaretDownOutlined, CaretRightOutlined, SortAscendingOutlined, SortDescendingOutlined } from '@ant-design/icons';
 
@@ -19,15 +19,14 @@ const CustomDataTable = forwardRef(({
                                         enableAggregation = true,
                                         enableColumnReordering = true
                                     }, ref) => {
-    const [selectedRows, setSelectedRows] = useState(new Set());
+    const [selectedRows, setSelectedRows] = useState([]);
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-    const [groupedData, setGroupedData] = useState([]);
     const [expandedGroups, setExpandedGroups] = useState(new Set());
-    const [columnGroups, setColumnGroups] = useState({});
-    const [columnAggregations, setColumnAggregations] = useState({});
-    const [visibleColumns, setVisibleColumns] = useState(columns.map(col => col.key));
+    const [activeGroups, setActiveGroups] = useState([]);
     const [columnOrder, setColumnOrder] = useState(columns.map(col => col.key));
+    const [visibleColumns, setVisibleColumns] = useState(columns.map(col => col.key));
     const [bestFitEnabled, setBestFitEnabled] = useState(false);
+    const [columnAggregations, setColumnAggregations] = useState({});
 
     const [draggedColKey, setDraggedColKey] = useState(null);
     const [dragOverColKey, setDragOverColKey] = useState(null);
@@ -60,127 +59,164 @@ const CustomDataTable = forwardRef(({
         return processed;
     }, [data, sortConfig]);
 
-    // Grouping helpers
-    const groupDataByColumn = (columnKey) => {
+    // Helper function to check if row is selected
+    const isRowSelected = (rowId) => {
+        return selectedRows.some(row => row.id === rowId);
+    };
+
+    // Group data hierarchically
+    const groupDataHierarchically = (columnKey) => {
         if (!enableGrouping) return;
 
-        const groups = {};
-        processedData.forEach(item => {
-            const groupValue = item[columnKey] || 'Unknown';
-            if (!groups[groupValue]) groups[groupValue] = [];
-            groups[groupValue].push(item);
-        });
-
-        const newGroups = Object.entries(groups).map(([value, items]) => ({
-            id: `col-group-${columnKey}-${value}`,
-            name: value,
-            columnKey: columnKey,
-            items: items,
-            count: items.length,
-            totalAmount: items.reduce((sum, item) => sum + (item.amount || item.extendedAmount || 0), 0)
-        }));
-
-        setColumnGroups(prev => ({ ...prev, [columnKey]: newGroups }));
-    };
-
-    const ungroupDataByColumn = (columnKey) => {
-        setColumnGroups(prev => {
-            const newGroups = { ...prev };
-            delete newGroups[columnKey];
-            return newGroups;
+        setActiveGroups(prev => {
+            if (prev.includes(columnKey)) return prev;
+            return [...prev, columnKey];
         });
     };
 
-    const calculateAggregation = (columnKey, operation) => {
-        if (!enableAggregation) return;
+    const removeGroup = (columnKey) => {
+        setActiveGroups(prev => prev.filter(group => group !== columnKey));
 
-        const column = columns.find(col => col.key === columnKey);
-        if (!column || column.type !== 'number') return;
+        // Remove from expanded groups as well
+        const newExpandedGroups = new Set(expandedGroups);
+        expandedGroups.forEach(groupId => {
+            if (groupId.includes(columnKey)) {
+                newExpandedGroups.delete(groupId);
+            }
+        });
+        setExpandedGroups(newExpandedGroups);
+    };
 
-        let result;
-        if (operation === 'sum') {
-            result = processedData.reduce((sum, item) => sum + (+item[columnKey] || 0), 0);
-        } else if (operation === 'average') {
-            const sum = processedData.reduce((sum, item) => sum + (+item[columnKey] || 0), 0);
-            const count = processedData.filter(item => +item[columnKey] !== undefined && +item[columnKey] !== null).length;
-            result = count > 0 ? sum / count : 0;
+    const clearAllGroups = () => {
+        setActiveGroups([]);
+        setExpandedGroups(new Set());
+    };
+
+    // Build hierarchical grouped data
+    const buildHierarchicalData = useMemo(() => {
+        if (activeGroups.length === 0) {
+            return processedData.map(item => ({
+                ...item,
+                _level: 0,
+                _isDataRow: true
+            }));
         }
 
-        setColumnAggregations(prev => ({
-            ...prev,
-            [columnKey]: {
-                operation,
-                value: result,
-                formattedValue: operation === 'sum' ? `${result?.toLocaleString()}` : `${result?.toFixed(2)}`
+        const groupDataRecursively = (items, level = 0, groupPath = []) => {
+            if (level >= activeGroups.length) {
+                return items.map(item => ({
+                    ...item,
+                    _level: level,
+                    _groupPath: [...groupPath],
+                    _isDataRow: true
+                }));
             }
-        }));
-    };
+
+            const currentGroupKey = activeGroups[level];
+            const groups = {};
+
+            // Group items by current level
+            items.forEach(item => {
+                const groupValue = item[currentGroupKey] || 'Unknown';
+                if (!groups[groupValue]) {
+                    groups[groupValue] = [];
+                }
+                groups[groupValue].push(item);
+            });
+
+            const result = [];
+
+            // Create group headers and recursively process subgroups
+            Object.entries(groups).forEach(([groupValue, groupItems]) => {
+                const groupId = `group-${currentGroupKey}-${groupValue}-${level}`;
+                const newGroupPath = [...groupPath, { key: currentGroupKey, value: groupValue }];
+
+                // Add group header
+                result.push({
+                    id: groupId,
+                    _isGroupHeader: true,
+                    _groupKey: groupId,
+                    _level: level,
+                    _groupPath: newGroupPath,
+                    groupColumn: currentGroupKey,
+                    groupValue: groupValue,
+                    itemCount: groupItems.length,
+                    totalAmount: groupItems.reduce((sum, item) => sum + (item.amount || item.extendedAmount || 0), 0)
+                });
+
+                // Add subgroup items if group is expanded
+                if (expandedGroups.has(groupId)) {
+                    const subgroupItems = groupDataRecursively(groupItems, level + 1, newGroupPath);
+                    result.push(...subgroupItems);
+                }
+            });
+
+            return result;
+        };
+
+        return groupDataRecursively(processedData);
+    }, [processedData, activeGroups, expandedGroups]);
 
     // Display data
     const displayData = useMemo(() => {
-        const flattened = [];
+        return buildHierarchicalData;
+    }, [buildHierarchicalData]);
 
-        Object.values(columnGroups).flat().forEach(group => {
-            flattened.push({ ...group, _isColumnGroupHeader: true, _groupKey: group.id, id: group.id });
-            if (expandedGroups.has(group.id)) {
-                group.items.forEach(item => {
-                    flattened.push({ ...item, _isGroupedItem: true, _groupId: group.id });
-                });
+    // Handle group toggle
+    const handleGroupToggle = (groupId) => {
+        const newExpandedGroups = new Set(expandedGroups);
+        if (newExpandedGroups.has(groupId)) {
+            newExpandedGroups.delete(groupId);
+        } else {
+            newExpandedGroups.add(groupId);
+        }
+        setExpandedGroups(newExpandedGroups);
+    };
+
+    // Expand/Collapse all groups
+    const expandAllGroups = () => {
+        const allGroupIds = buildHierarchicalData
+            .filter(item => item._isGroupHeader)
+            .map(group => group.id);
+        setExpandedGroups(new Set(allGroupIds));
+    };
+
+    const collapseAllGroups = () => {
+        setExpandedGroups(new Set());
+    };
+
+    // Selection handlers
+    const handleRowSelect = (row, checked) => {
+        if (!row || !row._isDataRow) return;
+
+        setSelectedRows(prevSelectedRows => {
+            let newSelection;
+
+            if (checked) {
+                if (!prevSelectedRows.some(selectedRow => selectedRow.id === row.id)) {
+                    newSelection = [...prevSelectedRows, row];
+                } else {
+                    newSelection = prevSelectedRows;
+                }
+            } else {
+                newSelection = prevSelectedRows.filter(selectedRow => selectedRow.id !== row.id);
             }
+
+            onSelectionChange(newSelection);
+            return newSelection;
         });
-
-        groupedData.forEach(group => {
-            flattened.push({ ...group, _isGroupHeader: true, _groupKey: group.id, id: group.id });
-            if (expandedGroups.has(group.id)) {
-                group.items.forEach(item => {
-                    flattened.push({ ...item, _isGroupedItem: true, _groupId: group.id });
-                });
-            }
-        });
-
-        const allGroupedItems = new Set();
-        Object.values(columnGroups).flat().forEach(group => {
-            group.items.forEach(item => allGroupedItems.add(item.id));
-        });
-        groupedData.forEach(group => {
-            group.items.forEach(item => allGroupedItems.add(item.id));
-        });
-
-        const ungroupedData = processedData.filter(item => !allGroupedItems.has(item.id));
-        flattened.push(...ungroupedData);
-
-        return flattened;
-    }, [processedData, groupedData, columnGroups, expandedGroups]);
-
-    // Visible & ordered columns
-    const displayColumns = useMemo(() => {
-        const filtered = columns.filter(col => visibleColumns.includes(col.key));
-        return filtered.sort((a, b) => columnOrder.indexOf(a.key) - columnOrder.indexOf(b.key));
-    }, [columns, visibleColumns, columnOrder]);
-
-    // Selection
-    const handleRowSelect = (rowId, checked) => {
-        if (!rowId || rowId.toString().startsWith('group-')) return;
-        const newSelection = new Set(selectedRows);
-        if (checked) newSelection.add(rowId);
-        else newSelection.delete(rowId);
-        setSelectedRows(newSelection);
-        onSelectionChange(Array.from(newSelection));
     };
 
     const handleSelectAll = (checked) => {
-        const selectableRows = processedData.filter(row => row.id && !row.id.toString().startsWith('group-'));
-        if (checked) {
-            const allIds = selectableRows.map(row => row.id);
-            setSelectedRows(new Set(allIds));
-            onSelectionChange(allIds);
-        } else {
-            setSelectedRows(new Set());
-            onSelectionChange([]);
-        }
+        const selectableRows = processedData.filter(row => row.id && row._isDataRow !== false);
+        setSelectedRows(() => {
+            const newSelection = checked ? selectableRows : [];
+            onSelectionChange(newSelection);
+            return newSelection;
+        });
     };
 
-    // Sorting
+    // Sorting handler
     const handleSort = (key) => {
         if (dragActiveRef.current) return;
 
@@ -191,85 +227,20 @@ const CustomDataTable = forwardRef(({
         onSort(key, direction);
     };
 
-    // Context menu
+    // Context menu handler
     const handleContextMenu = (event, row, type = 'row', columnKey = null) => {
         event.preventDefault();
         if (onContextMenu) {
-            const selectedRowsArray = Array.from(selectedRows);
-            const contextRows = selectedRowsArray.length > 0 && type === 'row'
-                ? processedData.filter(item => selectedRowsArray.includes(item.id))
-                : [row];
+            const contextRows = selectedRows.length > 0 && type === 'row'
+                ? selectedRows
+                : row ? [row] : [];
             onContextMenu(event, contextRows, row, type, columnKey);
         }
     };
 
-    const handleGroupToggle = (groupId) => {
-        const newExpandedGroups = new Set(expandedGroups);
-        if (newExpandedGroups.has(groupId)) newExpandedGroups.delete(groupId);
-        else newExpandedGroups.add(groupId);
-        setExpandedGroups(newExpandedGroups);
-    };
-
-    // Manual grouping
-    const handleCreateGroup = (groupName, rows) => {
-        if (!enableGrouping) return;
-
-        const newGroup = {
-            id: `manual-group-${Date.now()}`,
-            name: groupName,
-            items: rows,
-            count: rows.length,
-            totalAmount: rows.reduce((sum, item) => sum + (item.amount || item.extendedAmount || 0), 0)
-        };
-        setGroupedData(prev => [...prev, newGroup]);
-    };
-
-    const handleAddToGroup = (groupId, rows) => {
-        if (!enableGrouping) return;
-
-        setGroupedData(prev =>
-            prev.map(group =>
-                group.id === groupId
-                    ? {
-                        ...group,
-                        items: [...group.items, ...rows],
-                        count: group.items.length + rows.length,
-                        totalAmount: group.totalAmount + rows.reduce((sum, item) => sum + (item.amount || item.extendedAmount || 0), 0)
-                    }
-                    : group
-            )
-        );
-    };
-
-    const handleRemoveFromGroup = (groupId, rowId) => {
-        setGroupedData(prev =>
-            prev
-                .map(group => {
-                    if (group.id === groupId) {
-                        const newItems = group.items.filter(item => item.id !== rowId);
-                        return {
-                            ...group,
-                            items: newItems,
-                            count: newItems.length,
-                            totalAmount: newItems.reduce((sum, item) => sum + (item.amount || item.extendedAmount || 0), 0)
-                        };
-                    }
-                    return group;
-                })
-                .filter(group => group.count > 0)
-        );
-    };
-
-    // Column management API
-    const handleUpdateColumns = (newVisibleColumns, newColumnOrder) => {
-        setVisibleColumns(newVisibleColumns);
-        setColumnOrder(newColumnOrder);
-    };
-
-    // DnD handlers for headers
+    // Column reordering handlers
     const onHeaderDragStart = (e, colKey) => {
         if (!enableColumnReordering) return;
-
         setDraggedColKey(colKey);
         dragActiveRef.current = true;
         try { e.dataTransfer.setData('text/plain', colKey); } catch {}
@@ -277,14 +248,12 @@ const CustomDataTable = forwardRef(({
 
     const onHeaderDragOver = (e, overKey) => {
         if (!enableColumnReordering) return;
-
         e.preventDefault();
         if (overKey !== dragOverColKey) setDragOverColKey(overKey);
     };
 
     const onHeaderDrop = (e, dropTargetKey) => {
         if (!enableColumnReordering) return;
-
         e.preventDefault();
         const fromKey = draggedColKey;
         const toKey = dropTargetKey;
@@ -312,27 +281,53 @@ const CustomDataTable = forwardRef(({
         setTimeout(() => (dragActiveRef.current = false), 0);
     };
 
+    // Aggregation functions
+    const calculateAggregation = (columnKey, operation) => {
+        if (!enableAggregation) return;
+
+        const column = columns.find(col => col.key === columnKey);
+        if (!column || column.type !== 'number') return;
+
+        let result;
+        if (operation === 'sum') {
+            result = processedData.reduce((sum, item) => sum + (+item[columnKey] || 0), 0);
+        } else if (operation === 'average') {
+            const sum = processedData.reduce((sum, item) => sum + (+item[columnKey] || 0), 0);
+            const count = processedData.filter(item => +item[columnKey] !== undefined && +item[columnKey] !== null).length;
+            result = count > 0 ? sum / count : 0;
+        }
+
+        setColumnAggregations(prev => ({
+            ...prev,
+            [columnKey]: {
+                operation,
+                value: result,
+                formattedValue: operation === 'sum' ? `${result?.toLocaleString()}` : `${result?.toFixed(2)}`
+            }
+        }));
+    };
+
     // Best Fit handler
     const handleBestFit = () => {
         setBestFitEnabled(prev => !prev);
     };
 
-    useEffect(() => {
-        setBestFitEnabled(false);
-    }, [visibleColumns, columnOrder]);
-
-    const getCellContentStyle = () => {
-        return bestFitEnabled ? { width: 'auto', minWidth: 'fit-content' } : {};
+    // Column management
+    const handleUpdateColumns = (newVisibleColumns, newColumnOrder) => {
+        setVisibleColumns(newVisibleColumns);
+        setColumnOrder(newColumnOrder);
     };
 
+    // Expose API methods
     useImperativeHandle(ref, () => ({
-        groupByColumn: (columnKey) => groupDataByColumn(columnKey),
-        ungroupByColumn: (columnKey) => ungroupDataByColumn(columnKey),
+        getSelectedRows: () => selectedRows,
+        groupByColumn: (columnKey) => groupDataHierarchically(columnKey),
+        ungroupByColumn: (columnKey) => removeGroup(columnKey),
+        clearAllGroups: () => clearAllGroups(),
+        expandAllGroups: () => expandAllGroups(),
+        collapseAllGroups: () => collapseAllGroups(),
+        getActiveGroups: () => activeGroups,
         aggregateColumn: (columnKey, operation) => calculateAggregation(columnKey, operation),
-        createGroup: (groupName, rows) => handleCreateGroup(groupName, rows),
-        addToGroup: (groupId, rows) => handleAddToGroup(groupId, rows),
-        removeFromGroup: (groupId, rowId) => handleRemoveFromGroup(groupId, rowId),
-        getAvailableGroups: () => groupedData,
         getColumnsState: () => ({
             selectedColumns: visibleColumns,
             columnOrder: columnOrder
@@ -342,52 +337,17 @@ const CustomDataTable = forwardRef(({
             columns: visibleColumns,
             columnOrder: columnOrder,
             sortConfig: sortConfig,
-            groups: columnGroups ? Object.keys(columnGroups).reduce((acc, columnKey) => {
-                acc[columnKey] = columnGroups[columnKey].map(group => ({
-                    columnKey: group.columnKey,
-                    name: group.name,
-                    id: group.id,
-                    count: group.count,
-                    totalAmount: group.totalAmount
-                }));
-                return acc;
-            }, {}) : {},
+            activeGroups: activeGroups,
+            expandedGroups: Array.from(expandedGroups),
             aggregations: columnAggregations
         }),
         applyView: (view) => {
             if (view.columns) setVisibleColumns(view.columns);
             if (view.columnOrder) setColumnOrder(view.columnOrder);
             if (view.sortConfig) setSortConfig(view.sortConfig);
+            if (view.activeGroups) setActiveGroups(view.activeGroups);
+            if (view.expandedGroups) setExpandedGroups(new Set(view.expandedGroups));
             if (view.aggregations) setColumnAggregations(view.aggregations);
-
-            // Rebuild groups based on current data
-            if (view.groups && enableGrouping) {
-                const newColumnGroups = {};
-
-                Object.entries(view.groups).forEach(([columnKey, savedGroups]) => {
-                    const currentGroups = {};
-                    data.forEach(item => {
-                        const groupValue = item[columnKey] || 'Unknown';
-                        if (!currentGroups[groupValue]) currentGroups[groupValue] = [];
-                        currentGroups[groupValue].push(item);
-                    });
-
-                    newColumnGroups[columnKey] = savedGroups
-                        .filter(savedGroup => currentGroups[savedGroup.name])
-                        .map(savedGroup => ({
-                            id: savedGroup.id,
-                            name: savedGroup.name,
-                            columnKey: savedGroup.columnKey,
-                            items: currentGroups[savedGroup.name] || [],
-                            count: currentGroups[savedGroup.name]?.length || 0,
-                            totalAmount: (currentGroups[savedGroup.name] || []).reduce(
-                                (sum, item) => sum + (item.amount || item.extendedAmount || 0), 0
-                            )
-                        }));
-                });
-
-                setColumnGroups(newColumnGroups);
-            }
         },
         toggleBestFit: () => handleBestFit(),
         isBestFitEnabled: () => bestFitEnabled
@@ -395,6 +355,36 @@ const CustomDataTable = forwardRef(({
 
     // Cell renderers
     const renderCellContent = (row, column) => {
+        if (row._isGroupHeader) {
+            // For group headers, only show content in the first column
+            if (displayColumns[0] && column.key === displayColumns[0].key) {
+                const column = columns.find(col => col.key === row.groupColumn);
+                return (
+                    <div className="group-header-cell" style={{ paddingLeft: `${row._level * 20}px` }}>
+                        <button
+                            className="group-toggle"
+                            onClick={() => handleGroupToggle(row.id)}
+                            style={{ marginRight: '8px' }}
+                        >
+                            {expandedGroups.has(row.id) ? <CaretDownOutlined /> : <CaretRightOutlined />}
+                        </button>
+                        <span className="group-label" style={{ fontWeight: 'bold', marginRight: '8px' }}>
+              {column?.title || row.groupColumn}:
+            </span>
+                        <span className="group-value" style={{ marginRight: '12px' }}>{row.groupValue}</span>
+                        <span className="group-count" style={{ color: '#666' }}>({row.itemCount} items)</span>
+                        {row.totalAmount > 0 && (
+                            <span className="group-total" style={{ marginLeft: '12px', color: '#666' }}>
+                Total: ${row.totalAmount.toLocaleString()}
+              </span>
+                        )}
+                    </div>
+                );
+            }
+            // For other columns in group header rows, show empty
+            return null;
+        }
+
         const value = row[column.key];
         const slot = slots[column.key];
 
@@ -411,41 +401,66 @@ const CustomDataTable = forwardRef(({
 
         return (
             <Tooltip title={displayValue} placement="topLeft">
-        <span className="cell-content"
-              style={getCellContentStyle()}>{displayValue || '-'}</span>
+                <span className="cell-content">{displayValue || '-'}</span>
             </Tooltip>
         );
     };
 
-    // Group header
-    const renderGroupHeader = (row) => {
-        const isColumnGroup = row._isColumnGroupHeader;
-        const isExpanded = expandedGroups.has(row.id);
+    // Active groups display component
+    const ActiveGroupsDisplay = () => {
+        if (activeGroups.length === 0) return null;
 
         return (
-            <tr className={`group-header ${isExpanded ? 'expanded' : 'collapsed'}`}>
-                <td colSpan={displayColumns.length + (selection ? 1 : 0)}>
-                    <div className="group-header-content">
-                        <button className="group-toggle" onClick={() => handleGroupToggle(row.id)}>
-                            {isExpanded ? <CaretDownOutlined />: <CaretRightOutlined /> }
-                        </button>
-                        <span className="group-name">
-              {isColumnGroup ? `${row.columnKey}: ${row.name}` : row.name}
-            </span>
-                        <span className="group-count">({row.count} items)</span>
-                        {row.totalAmount && (
-                            <span className="group-total">
-                Total: ${row.totalAmount.toLocaleString()}
-              </span>
-                        )}
-                    </div>
-                </td>
-            </tr>
+            <div className="active-groups-display">
+                <div className="groups-breadcrumb">
+                    <span className="groups-label">Grouped by:</span>
+                    {activeGroups.map((groupKey, index) => {
+                        const column = columns.find(col => col.key === groupKey);
+                        return (
+                            <>
+                                <Tag
+                                    key={groupKey}
+                                    closable
+                                    onClose={() => removeGroup(groupKey)}
+                                    className="group-tag"
+                                    color="blue"
+                                >
+                                    {column?.title || groupKey}
+                                </Tag>
+                                {index < activeGroups.length - 1 && (
+                                    <span className="group-separator"> → </span>
+                                )}
+                            </>
+
+
+                        );
+                    })}
+                    {activeGroups.length > 0 && (
+                        <Button
+                            type="link"
+                            size="small"
+                            onClick={clearAllGroups}
+                            className="clear-all-groups"
+                        >
+                            Clear All
+                        </Button>
+                    )}
+                </div>
+            </div>
         );
     };
 
+    // Visible & ordered columns
+    const displayColumns = useMemo(() => {
+        const filtered = columns.filter(col => visibleColumns.includes(col.key));
+        return filtered.sort((a, b) => columnOrder.indexOf(a.key) - columnOrder.indexOf(b.key));
+    }, [columns, visibleColumns, columnOrder]);
+
     return (
         <div className="custom-data-table">
+            {/* Active Groups Display */}
+            <ActiveGroupsDisplay />
+
             <table className="data-table">
                 {/* Table Header */}
                 <thead className={stickyHeader ? 'sticky-header' : ''}>
@@ -454,7 +469,7 @@ const CustomDataTable = forwardRef(({
                         <th className="selection-column">
                             <input
                                 type="checkbox"
-                                checked={selectedRows.size > 0 && selectedRows.size === processedData.length}
+                                checked={selectedRows.length > 0 && selectedRows.length === processedData.length}
                                 onChange={(e) => handleSelectAll(e.target.checked)}
                                 className="row-checkbox"
                             />
@@ -504,7 +519,7 @@ const CustomDataTable = forwardRef(({
                                                     columnAggregations[column.key].operation === 'sum' ? 'cyan' :
                                                         columnAggregations[column.key].operation === 'average' ? 'green' : 'gold'
                                                 }
-                                                style={{ fontSize: '11px', cursor: 'pointer' }}
+                                                style={{ fontSize: '11px', cursor: 'pointer', marginLeft: '4px' }}
                                             >
                                                 {columnAggregations[column.key].operation === 'sum' ? '∑' : 'Avg'}: {columnAggregations[column.key].formattedValue}
                                             </Tag>
@@ -521,40 +536,50 @@ const CustomDataTable = forwardRef(({
                 <tbody>
                 {loading ? (
                     <tr>
-                        <td colSpan={displayColumns.length + (selection ? 1 : 0)} className="loading-cell">Loading...</td>
+                        <td colSpan={displayColumns.length + (selection ? 1 : 0)} className="loading-cell">
+                            Loading...
+                        </td>
                     </tr>
                 ) : displayData.length === 0 ? (
                     <tr>
-                        <td colSpan={displayColumns.length + (selection ? 1 : 0)} className="empty-cell">No data available</td>
+                        <td colSpan={displayColumns.length + (selection ? 1 : 0)} className="empty-cell">
+                            No data available
+                        </td>
                     </tr>
                 ) : (
                     displayData.map((row, index) => {
-                        if (row._isGroupHeader || row._isColumnGroupHeader) return renderGroupHeader(row);
-
-                        const isSelected = selectedRows.has(row.id);
-                        const isGrouped = row._isGroupedItem;
+                        const isGroupHeader = row._isGroupHeader;
+                        const isDataRow = row._isDataRow;
+                        const isSelected = isRowSelected(row.id);
 
                         return (
                             <tr
                                 key={row.id || index}
-                                className={`data-row ${isSelected ? 'selected' : ''} ${isGrouped ? 'grouped' : ''} ${rowClassName}`}
-                                onContextMenu={(e) => onContextMenu && handleContextMenu(e, row, 'row')}
+                                className={`${isGroupHeader ? 'group-header-row' : 'data-row'} ${
+                                    isSelected ? 'selected' : ''
+                                } ${isDataRow ? 'data-row-item' : ''} ${rowClassName}`}
+                                data-level={row._level}
+                                onContextMenu={(e) => onContextMenu && isDataRow && handleContextMenu(e, row, 'row')}
                             >
                                 {selection && (
                                     <td className="selection-column">
-                                        <input
-                                            type="checkbox"
-                                            checked={isSelected}
-                                            onChange={(e) => handleRowSelect(row.id, e.target.checked)}
-                                            className="row-checkbox"
-                                        />
+                                        {isDataRow && (
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={(e) => handleRowSelect(row, e.target.checked)}
+                                                className="row-checkbox"
+                                            />
+                                        )}
                                     </td>
                                 )}
-                                {displayColumns.map((column) => (
+                                {displayColumns.map((column, colIndex) => (
                                     <td
                                         key={column.key}
                                         style={{ width: column.width || 'auto' }}
-                                        className={`data-cell ${column.type || ''}`}
+                                        className={`data-cell ${column.type || ''} ${
+                                            isGroupHeader ? 'group-cell' : ''
+                                        } ${colIndex === 0 && isGroupHeader ? 'first-column-group' : ''}`}
                                     >
                                         {renderCellContent(row, column)}
                                     </td>

@@ -8,7 +8,6 @@ import ContextMenu from './ContextMenu';
 import './GenericDataTable.scss';
 
 import * as XLSX from 'xlsx';
-// import axios from 'axios'; // Uncomment when API integration is needed
 
 const { Option } = Select;
 
@@ -19,13 +18,19 @@ const GenericDataTable = ({
                               title = "Data Table",
                               onRefresh = () => {},
                               onExport = null,
-                              enableGrouping = true,
-                              enableAggregation = true,
-                              enableColumnReordering = true,
+                              enableGrouping = false,
+                              enableAggregation = false,
+                              enableColumnReordering = false,
                               contextMenuActions = {},
                               slots = {},
                               rowClassName = '',
-                              stickyHeader = true
+                              stickyHeader = true,
+                              customButtons = [],
+                              customToolbarComponents = [],
+                              modalMode = false,
+                              hideToolbar = false,
+                              onSelectionChange = null,
+                              selection = true
                           }) => {
     const [selectedRows, setSelectedRows] = useState([]);
     const [contextMenu, setContextMenu] = useState({
@@ -46,62 +51,9 @@ const GenericDataTable = ({
 
     const tableRef = useRef(null);
 
-    // API Integration Functions - Commented for now
-    /*
-
-    // Fetch saved views from API
-    const fetchSavedViews = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/views`, {
-          params: { table: title }
-        });
-        setSavedViews(response.data);
-      } catch (error) {
-        console.error('Error fetching views:', error);
-        message.error('Failed to load saved views');
-        // Fallback to localStorage
-        const localViews = JSON.parse(localStorage.getItem(`${title}_views`) || '[]');
-        setSavedViews(localViews);
-      }
-    };
-
-    // Save view to API
-    const saveViewToAPI = async (viewData) => {
-      try {
-        await axios.post(`${API_BASE_URL}/views`, {
-          ...viewData,
-          table: title
-        });
-        message.success('View saved successfully');
-        return true;
-      } catch (error) {
-        console.error('Error saving view:', error);
-        message.error('Failed to save view to server');
-        return false;
-      }
-    };
-
-    // Delete view from API
-    const deleteViewFromAPI = async (viewId) => {
-      try {
-        await axios.delete(`${API_BASE_URL}/views/${viewId}`);
-        message.success('View deleted successfully');
-        return true;
-      } catch (error) {
-        console.error('Error deleting view:', error);
-        message.error('Failed to delete view from server');
-        return false;
-      }
-    };
-
-    // Load views on component mount
-    useEffect(() => {
-      fetchSavedViews();
-    }, [title]);
-    */
-
     // Current implementation using localStorage
     useEffect(() => {
+        if (modalMode) return;
         try {
             const localViews = JSON.parse(localStorage.getItem(`${title}_views`) || '[]');
             setSavedViews(localViews);
@@ -135,6 +87,14 @@ const GenericDataTable = ({
             type: null,
             columnKey: null
         });
+    };
+
+    // Handle row selection
+    const handleSelectionChange = (selectedRows) => {
+        setSelectedRows(selectedRows);
+        if (onSelectionChange) {
+            onSelectionChange(selectedRows);
+        }
     };
 
     // Default export function
@@ -219,33 +179,12 @@ const GenericDataTable = ({
                 columns: viewData.columns,
                 columnOrder: viewData.columnOrder,
                 sortConfig: viewData.sortConfig,
-                groups: viewData.groups ? Object.keys(viewData.groups).reduce((acc, columnKey) => {
-                    acc[columnKey] = viewData.groups[columnKey].map(group => ({
-                        columnKey: group.columnKey,
-                        name: group.name,
-                        id: group.id,
-                        count: group.count,
-                        totalAmount: group.totalAmount
-                    }));
-                    return acc;
-                }, {}) : {},
-                aggregations: viewData.aggregations,
+                activeGroups: viewData.activeGroups || [],
+                expandedGroups: viewData.expandedGroups || [],
                 createdAt: new Date().toISOString()
             };
 
             try {
-                // API Integration - Commented for now
-                /*
-                const apiSuccess = await saveViewToAPI(cleanViewData);
-                if (apiSuccess) {
-                  setSaveViewModalVisible(false);
-                  setViewName('');
-                  fetchSavedViews(); // Refresh views list
-                  return;
-                }
-                // Fallback to localStorage if API fails
-                */
-
                 // Current localStorage implementation
                 const storageKey = `${title}_views`;
                 const savedViews = JSON.parse(localStorage.getItem(storageKey) || '[]');
@@ -280,16 +219,6 @@ const GenericDataTable = ({
 
     const handleDeleteView = (viewId) => {
         try {
-            // API Integration - Commented for now
-            /*
-            const apiSuccess = await deleteViewFromAPI(viewId);
-            if (apiSuccess) {
-              fetchSavedViews();
-              return;
-            }
-            // Fallback to localStorage if API fails
-            */
-
             // Current localStorage implementation
             const storageKey = `${title}_views`;
             const updatedViews = savedViews.filter(v => v.id !== viewId);
@@ -326,14 +255,37 @@ const GenericDataTable = ({
                     onClick: () => tableRef.current?.groupByColumn(columnKey)
                 });
 
+                // Only show ungroup if this column is currently grouped
+                const activeGroups = tableRef.current?.getActiveGroups() || [];
+                if (activeGroups.includes(columnKey)) {
+                    actions.push({
+                        label: `Ungroup by ${column?.title}`,
+                        onClick: () => tableRef.current?.ungroupByColumn(columnKey)
+                    });
+                }
+            }
+
+            // Group management actions
+            const activeGroups = tableRef.current?.getActiveGroups() || [];
+            if (activeGroups.length > 0) {
+                actions.push({ type: 'divider' });
                 actions.push({
-                    label: `Ungroup by ${column?.title}`,
-                    onClick: () => tableRef.current?.ungroupByColumn(columnKey)
+                    label: 'Expand All Groups',
+                    onClick: () => tableRef.current?.expandAllGroups()
+                });
+                actions.push({
+                    label: 'Collapse All Groups',
+                    onClick: () => tableRef.current?.collapseAllGroups()
+                });
+                actions.push({
+                    label: 'Clear All Groups',
+                    onClick: () => tableRef.current?.clearAllGroups()
                 });
             }
 
             // Aggregation actions
             if (enableAggregation && column?.type === 'number') {
+                actions.push({ type: 'divider' });
                 actions.push({
                     label: `Sum ${column?.title}`,
                     onClick: () => tableRef.current?.aggregateColumn(columnKey, 'sum')
@@ -344,7 +296,7 @@ const GenericDataTable = ({
                 });
             }
         } else {
-            // Custom context menu actions
+            // Custom context menu actions for rows
             if (contextMenuActions.rowActions) {
                 actions.push(...contextMenuActions.rowActions(rows, clickedRow));
             }
@@ -355,61 +307,83 @@ const GenericDataTable = ({
 
     return (
         <div className="generic-data-table">
-            <div className="table-toolbar">
-                <Space>
-                    <Button icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>
-                        Refresh
-                    </Button>
-                    <Button
-                        icon={<DownloadOutlined />}
-                        onClick={handleExport}
-                        disabled={data.length === 0}
-                    >
-                        Export ({data.length})
-                    </Button>
-                    <Button
-                        icon={<SaveOutlined />}
-                        onClick={handleShowSaveViewModal}
-                        disabled={data.length === 0}
-                    >
-                        Save Current View
-                    </Button>
-                    <Button
-                        icon={<SettingOutlined />}
-                        onClick={handleShowColumnsModal}
-                        disabled={data.length === 0}
-                    >
-                        Show/Hide Columns
-                    </Button>
-
-                    {savedViews.length > 0 && (
-                        <Select
-                            placeholder="Load Saved View"
-                            style={{ width: 200 }}
-                            onChange={handleLoadView}
+            {!modalMode && !hideToolbar && (
+                <div className="table-toolbar">
+                    <Space>
+                        <Button icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>
+                            Refresh
+                        </Button>
+                        <Button
+                            icon={<DownloadOutlined />}
+                            onClick={handleExport}
+                            disabled={data.length === 0}
                         >
-                            {savedViews.map(view => (
-                                <Option key={view.id} value={view.id}>
-                                    {view.name}
-                                </Option>
-                            ))}
-                        </Select>
-                    )}
-                </Space>
+                            Export ({data.length})
+                        </Button>
+                        <Button
+                            icon={<SaveOutlined />}
+                            onClick={handleShowSaveViewModal}
+                            disabled={data.length === 0}
+                        >
+                            Save Current View
+                        </Button>
+                        <Button
+                            icon={<SettingOutlined />}
+                            onClick={handleShowColumnsModal}
+                            disabled={data.length === 0}
+                        >
+                            Show/Hide Columns
+                        </Button>
 
-                <div className="table-info">
-                    Showing {data.length} records
-                    {selectedRows.length > 0 && ` (${selectedRows.length} selected)`}
+                        {/* Custom buttons from parent */}
+                        {customButtons && customButtons.map((button, index) => (
+                            <Button
+                                key={index}
+                                icon={button.icon}
+                                onClick={button.onClick}
+                                disabled={button.disabled}
+                                type={button.type || 'default'}
+                                danger={button.danger}
+                                loading={button.loading}
+                            >
+                                {button.label}
+                            </Button>
+                        ))}
+
+                        {/* Custom React components */}
+                        {customToolbarComponents && customToolbarComponents.map((Component, index) => (
+                            <Component key={index} />
+                        ))}
+
+                        {savedViews.length > 0 && (
+                            <Select
+                                placeholder="Load Saved View"
+                                style={{ width: 200 }}
+                                onChange={handleLoadView}
+                            >
+                                {savedViews.map(view => (
+                                    <Option key={view.id} value={view.id}>
+                                        {view.name}
+                                    </Option>
+                                ))}
+                            </Select>
+                        )}
+                    </Space>
+
+                    <div className="table-info">
+                        Showing {data.length} records
+                        {selectedRows.length > 0 && ` (${selectedRows.length} selected)`}
+                    </div>
                 </div>
-            </div>
+            )}
 
             <CustomDataTable
                 ref={tableRef}
                 data={data}
                 columns={columns}
                 loading={loading}
-                selection={true}
-                onSelectionChange={setSelectedRows}
+                selection={selection}
+                onSelectionChange={handleSelectionChange}
                 onSort={(key, direction) => console.log('Sorting by:', key, direction)}
                 onContextMenu={handleContextMenu}
                 slots={slots}
