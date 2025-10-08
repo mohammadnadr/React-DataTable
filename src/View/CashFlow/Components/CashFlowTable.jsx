@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Tag, Tooltip, } from 'antd';
 import './CashFlowTable.scss';
-import GenericDataTable from "components/Hybrids/CustomDataTable/GenericDataTable.jsx"
+import GenericDataTable from "../../../components/GenericDataTable"
 const CashFlowTable = ({ data, loading, currentView }) => {
 
     // Get status color mapping
