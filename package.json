@@ -1,6 +1,7 @@
 {
   "name": "mohammad-nadr-table-grid",
   "version": "0.1.2",
+  "homepage": "https://mohammadnadr.github.io/React-DataTable",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
