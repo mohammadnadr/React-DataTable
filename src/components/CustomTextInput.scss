@@ -1,0 +1,237 @@
+.custom-text-input {
+  width: 100%;
+  &__label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #262626;
+    line-height: 1.5;
+  }
+
+  &__required {
+    color: #ff4d4f;
+    margin-left: 4px;
+  }
+
+  &__wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    background-color: #ffffff;
+    transition: all 0.3s ease;
+    overflow: hidden;
+
+    &--small {
+      height: 28px;
+    }
+
+    &--default {
+      height: 34px;
+    }
+
+    &--large {
+      height: 42px;
+    }
+
+    &--focused {
+      border-color: #4096ff;
+      box-shadow: 0 0 0 2px rgba(64, 150, 255, 0.2);
+    }
+
+    &--disabled {
+      background-color: #f5f5f5;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    &--readonly {
+      background-color: #fafafa;
+    }
+
+    &--error {
+      border-color: #ff4d4f;
+
+      &.custom-text-input__wrapper--focused {
+        box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2);
+      }
+    }
+
+    &--success {
+      border-color: #52c41a;
+
+      &.custom-text-input__wrapper--focused {
+        box-shadow: 0 0 0 2px rgba(82, 196, 26, 0.2);
+      }
+    }
+
+    &--no-spinners {
+      input[type="number"] {
+        -moz-appearance: textfield;
+
+        &::-webkit-outer-spin-button,
+        &::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+      }
+    }
+  }
+
+  &__prefix {
+    padding: 0 8px;
+    color: #8c8c8c;
+    font-size: 14px;
+    border-right: 1px solid #d9d9d9;
+    background-color: #fafafa;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    flex-shrink: 0;
+  }
+
+  &__input {
+    flex: 1;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent;
+    padding: 4px 11px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #262626;
+
+    &.ant-input {
+      border: none;
+      box-shadow: none;
+      background: transparent;
+
+      &:focus {
+        border: none;
+        box-shadow: none;
+      }
+
+      &[disabled] {
+        background: transparent;
+        color: #000000a6;
+      }
+    }
+
+    &--no-spinners {
+      -moz-appearance: textfield;
+
+      &::-webkit-outer-spin-button,
+      &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+    }
+
+    &--small {
+      font-size: 13px;
+      padding: 2px 8px;
+    }
+
+    &--large {
+      font-size: 16px;
+      padding: 6px 12px;
+    }
+
+    &::placeholder {
+      color: #bfbfbf;
+    }
+  }
+
+  &__suffix-icons {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+
+  &__clear-icon,
+  &__password-icon {
+    color: #8c8c8c;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    font-size: 12px;
+
+    &:hover {
+      color: #262626;
+      background-color: #f0f0f0;
+    }
+  }
+
+  &__custom-suffix {
+    color: #8c8c8c;
+    font-size: 14px;
+    padding: 0 4px;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+    min-height: 20px;
+  }
+
+  &__helper-text {
+    font-size: 12px;
+    color: #8c8c8c;
+    line-height: 1.5;
+
+    &--error {
+      color: #ff4d4f;
+    }
+  }
+
+  &__char-count {
+    font-size: 12px;
+    color: #8c8c8c;
+    text-align: right;
+  }
+}
+
+input[type="number"].hide-spinners {
+  -moz-appearance: textfield;
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .custom-text-input {
+    &__wrapper {
+      &--small {
+        height: 32px;
+      }
+
+      &--default {
+        height: 40px;
+      }
+
+      &--large {
+        height: 48px;
+      }
+    }
+
+    &__input {
+      &--small {
+        font-size: 14px;
+      }
+
+      &--large {
+        font-size: 16px;
+      }
+    }
+  }
+}

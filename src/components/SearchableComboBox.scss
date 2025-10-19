@@ -1,0 +1,239 @@
+// SearchableComboBox.scss
+.searchable-combobox {
+  position: relative;
+  width: 100%;
+
+  .combobox-input {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    padding: 0 11px;
+    min-height: 32px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+
+    &:hover {
+      border-color: #40a9ff;
+    }
+
+    &.focused {
+      border-color: #40a9ff;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+    }
+
+    &.disabled {
+      background-color: #f5f5f5;
+      cursor: not-allowed;
+      opacity: 0.6;
+
+      .input-suffix .clear-icon {
+        cursor: not-allowed;
+      }
+    }
+
+    .input-content {
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      min-height: 32px;
+      padding-right: 8px;
+
+      .placeholder-text {
+        color: #bfbfbf;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .selected-tags-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        align-items: center;
+      }
+
+      .selected-tag {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin: 2px 0;
+        
+        .ant-tag-close-icon {
+          margin-left: 4px;
+        }
+      }
+
+      .search-input {
+        border: none;
+        outline: none;
+        background: transparent;
+        flex: 1;
+        min-width: 50px;
+        font-size: 14px;
+        line-height: 1.5;
+        padding: 0;
+        
+        &:focus {
+          outline: none;
+          box-shadow: none;
+        }
+
+        &::placeholder {
+          color: #bfbfbf;
+        }
+
+        &:disabled {
+          background: transparent;
+          cursor: not-allowed;
+        }
+      }
+    }
+
+    .input-suffix {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+
+      .clear-icon {
+        color: rgba(0, 0, 0, 0.45);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 3px;
+        transition: background-color 0.3s;
+
+        &:hover {
+          background-color: #f5f5f5;
+          color: rgba(0, 0, 0, 0.65);
+        }
+      }
+
+      .dropdown-arrow {
+        color: rgba(0, 0, 0, 0.45);
+        transition: transform 0.3s;
+        font-size: 12px;
+
+        &.rotated {
+          transform: rotate(180deg);
+        }
+      }
+    }
+  }
+
+  .combobox-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 
+                0 6px 16px 0 rgba(0, 0, 0, 0.08),
+                0 9px 28px 8px rgba(0, 0, 0, 0.05);
+    z-index: 1000;
+    margin-top: 4px;
+    max-height: 250px;
+    overflow: hidden;
+
+    .dropdown-content {
+      max-height: 250px;
+      overflow-y: auto;
+
+      .no-results {
+        padding: 12px 16px;
+        color: #bfbfbf;
+        text-align: center;
+        font-size: 14px;
+      }
+
+      .items-list {
+        .dropdown-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 16px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+          border-bottom: 1px solid #f0f0f0;
+
+          &:last-child {
+            border-bottom: none;
+          }
+
+          &:hover {
+            background-color: #f5f5f5;
+          }
+
+          &.selected {
+            background-color: #e6f7ff;
+            color: #1890ff;
+          }
+
+          .item-text {
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .check-mark {
+            color: #1890ff;
+            font-weight: bold;
+            margin-left: 8px;
+          }
+        }
+      }
+    }
+  }
+
+  // Scrollbar styling for dropdown
+  .dropdown-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .dropdown-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+
+  .dropdown-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+  }
+
+  .dropdown-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .searchable-combobox {
+    .combobox-input {
+      min-height: 44px; // Larger touch target on mobile
+      
+      .input-content {
+        .selected-tag {
+          max-width: 150px; // Smaller tags on mobile
+        }
+      }
+    }
+
+    .combobox-dropdown {
+      max-height: 200px;
+      
+      .dropdown-content {
+        max-height: 200px;
+      }
+    }
+  }
+}

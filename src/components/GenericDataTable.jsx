@@ -1,10 +1,15 @@
 // GenericDataTable.jsx
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Button, Space, Input, Select, message } from 'antd';
+import { toast, Bounce } from 'react-toastify';
+
 import Modal from './Modal';
-import { DownloadOutlined, ReloadOutlined, SettingOutlined, SaveOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ReloadOutlined, SettingOutlined, SaveOutlined, CloseOutlined, FilterOutlined } from '@ant-design/icons';
 import CustomDataTable from './CustomDataTable';
 import ContextMenu from './ContextMenu';
+
+import SearchableComboBox from './SearchableComboBox';
+import CustomTextInput from './CustomTextInput';
 import './GenericDataTable.scss';
 
 import * as XLSX from 'xlsx';
@@ -49,9 +54,18 @@ const GenericDataTable = ({
     const [columnOrder, setColumnOrder] = useState([]);
     const [savedViews, setSavedViews] = useState([]);
 
+    // Filter related states
+    const [filterModalVisible, setFilterModalVisible] = useState(false);
+    const [currentFilterColumn, setCurrentFilterColumn] = useState(null);
+    const [filterType, setFilterType] = useState(null);
+    const [filterValue, setFilterValue] = useState('');
+    const [filteredData, setFilteredData] = useState([]);
+    const [isFilterActive, setIsFilterActive] = useState(false);
+    const [activeFilters, setActiveFilters] = useState({});
+
     const tableRef = useRef(null);
 
-    // Current implementation using localStorage
+    // Load saved views from localStorage
     useEffect(() => {
         if (modalMode) return;
         try {
@@ -59,9 +73,35 @@ const GenericDataTable = ({
             setSavedViews(localViews);
         } catch (error) {
             console.error('Error loading saved views:', error);
+            toast.error('Error loading saved views:');
             setSavedViews([]);
         }
     }, [title]);
+
+    // Apply all active filters to data
+    const applyAllFilters = (filters, originalData) => {
+        if (Object.keys(filters).length === 0) {
+            return originalData;
+        }
+
+        return originalData.filter(row => {
+            return Object.entries(filters).every(([columnKey, filterInfo]) => {
+                const rowValue = parseFloat(row[columnKey]);
+                if (isNaN(rowValue)) return false;
+
+                switch (filterInfo.type) {
+                    case 'equal':
+                        return rowValue === filterInfo.value;
+                    case 'less':
+                        return rowValue < filterInfo.value;
+                    case 'greater':
+                        return rowValue > filterInfo.value;
+                    default:
+                        return true;
+                }
+            });
+        });
+    };
 
     // Handle context menu
     const handleContextMenu = (event, rows, clickedRow, type = 'row', columnKey = null) => {
@@ -97,10 +137,15 @@ const GenericDataTable = ({
         }
     };
 
+    // Get display data (filtered or original)
+    const getDisplayData = () => {
+        return isFilterActive ? filteredData : data;
+    };
+
     // Default export function
     const handleDefaultExport = async () => {
         try {
-            message.loading('Preparing Excel file...', 0);
+            toast.loading('Preparing Excel file...', 0);
 
             const columnsState = tableRef.current?.getColumnsState();
             const visibleColumns = columnsState?.selectedColumns || [];
@@ -112,7 +157,9 @@ const GenericDataTable = ({
                     title: col.title
                 }));
 
-            const exportData = data.map(row => {
+            const displayData = getDisplayData();
+
+            const exportData = displayData.map(row => {
                 const exportRow = {};
                 exportColumns.forEach(col => {
                     let value = row[col.key];
@@ -135,22 +182,141 @@ const GenericDataTable = ({
             const fileName = `${title.toLowerCase().replace(/\s+/g, '_')}_export_${new Date().toISOString().split('T')[0]}.xlsx`;
             XLSX.writeFile(wb, fileName);
 
-            message.destroy();
-            message.success(`Exported ${exportData.length} records successfully`);
+            toast.dismiss();
+            toast.success(`Exported ${exportData.length} records successfully`);
         } catch (error) {
             console.error('Export error:', error);
-            message.destroy();
-            message.error('Failed to export data');
+            toast.dismiss();
+            toast.error('Failed to export data');
         }
     };
 
     // Handle export (custom or default)
-    const handleExport = () => {
+    const handleExport = async () => {
         if (onExport) {
             onExport(data, selectedRows);
         } else {
-            handleDefaultExport();
+            await handleDefaultExport();
         }
+    };
+
+    // Filter related functions
+    const handleOpenFilterModal = (columnKey) => {
+        setCurrentFilterColumn(columnKey);
+        setFilterModalVisible(true);
+        handleCloseContextMenu();
+    };
+
+    const handleApplyFilter = () => {
+        if (!filterType || !filterValue || !currentFilterColumn) {
+            toast.error('Please select filter type and enter a value');
+            return;
+        }
+
+        try {
+            const numericValue = parseFloat(filterValue);
+            if (isNaN(numericValue)) {
+                toast.error('Please enter a valid number');
+                return;
+            }
+
+            const newActiveFilters = {
+                ...activeFilters,
+                [currentFilterColumn]: {
+                    type: filterType,
+                    value: numericValue,
+                    displayValue: filterValue
+                }
+            };
+
+            const filtered = applyAllFilters(newActiveFilters, data);
+
+            setFilteredData(filtered);
+            setIsFilterActive(true);
+            setActiveFilters(newActiveFilters);
+
+            setFilterModalVisible(false);
+            setFilterType(null);
+            setFilterValue('');
+
+            toast.success(`Filter applied: ${filtered.length} records found`);
+        } catch (error) {
+            console.error('Filter error:', error);
+            toast.error('Failed to apply filter');
+        }
+    };
+
+    const handleClearColumnFilter = (columnKey) => {
+        const newActiveFilters = { ...activeFilters };
+        delete newActiveFilters[columnKey];
+
+        const filtered = applyAllFilters(newActiveFilters, data);
+
+        setActiveFilters(newActiveFilters);
+        setFilteredData(filtered);
+
+        const hasActiveFilters = Object.keys(newActiveFilters).length > 0;
+        setIsFilterActive(hasActiveFilters);
+
+        const columnTitle = columns.find(col => col.key === columnKey)?.title || columnKey;
+        toast.success(`Filter cleared from ${columnTitle}`);
+    };
+
+    const handleClearFilter = () => {
+        setFilteredData([]);
+        setIsFilterActive(false);
+        setActiveFilters({});
+        setCurrentFilterColumn(null);
+        toast.success('All filters cleared');
+    };
+
+    // Get filter icon based on filter type
+    const getFilterIcon = (filterType) => {
+        switch (filterType) {
+            case 'equal':
+                return <span style={{ fontWeight: 'bold' }}>=</span>;
+            case 'less':
+                return <span style={{ fontWeight: 'bold' }}>&lt;</span>;
+            case 'greater':
+                return <span style={{ fontWeight: 'bold' }}>&gt;</span>;
+            default:
+                return <FilterOutlined />;
+        }
+    };
+
+    // Render column header with filter indicator
+    const renderColumnHeader = (column) => {
+        const filterInfo = activeFilters[column.key];
+
+        if (filterInfo) {
+            return (
+                <div className="column-header-with-filter">
+                    <span className="column-title">{column.title}</span>
+                    <div
+                        className="filter-indicator"
+                        data-filter-type={filterInfo.type}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleClearColumnFilter(column.key);
+                        }}
+                    >
+                        <span className="filter-icon">{getFilterIcon(filterInfo.type)}</span>
+                        <span className="filter-value">{filterInfo.displayValue}</span>
+                        <CloseOutlined className="filter-clear" />
+                    </div>
+                </div>
+            );
+        }
+
+        return column.title;
+    };
+
+    // Get columns with filter indicators
+    const getColumnsWithFilterIndicators = () => {
+        return columns.map(column => ({
+            ...column,
+            title: renderColumnHeader(column)
+        }));
     };
 
     // View management
@@ -185,7 +351,6 @@ const GenericDataTable = ({
             };
 
             try {
-                // Current localStorage implementation
                 const storageKey = `${title}_views`;
                 const savedViews = JSON.parse(localStorage.getItem(storageKey) || '[]');
 
@@ -201,10 +366,10 @@ const GenericDataTable = ({
 
                 setSaveViewModalVisible(false);
                 setViewName('');
-                message.success('View saved successfully');
+                toast.success('View saved successfully');
             } catch (error) {
                 console.error('Error saving view:', error);
-                message.error('Failed to save view');
+                toast.error('Failed to save view');
             }
         }
     };
@@ -213,21 +378,20 @@ const GenericDataTable = ({
         const view = savedViews.find(v => v.id === viewId);
         if (view && tableRef.current) {
             tableRef.current.applyView(view);
-            message.success(`View "${view.name}" loaded successfully`);
+            toast.success(`View "${view.name}" loaded successfully`);
         }
     };
 
     const handleDeleteView = (viewId) => {
         try {
-            // Current localStorage implementation
             const storageKey = `${title}_views`;
             const updatedViews = savedViews.filter(v => v.id !== viewId);
             localStorage.setItem(storageKey, JSON.stringify(updatedViews));
             setSavedViews(updatedViews);
-            message.success('View deleted successfully');
+            toast.success('View deleted successfully');
         } catch (error) {
             console.error('Error deleting view:', error);
-            message.error('Failed to delete view');
+            toast.error('Failed to delete view');
         }
     };
 
@@ -255,7 +419,6 @@ const GenericDataTable = ({
                     onClick: () => tableRef.current?.groupByColumn(columnKey)
                 });
 
-                // Only show ungroup if this column is currently grouped
                 const activeGroups = tableRef.current?.getActiveGroups() || [];
                 if (activeGroups.includes(columnKey)) {
                     actions.push({
@@ -294,6 +457,12 @@ const GenericDataTable = ({
                     label: `Average ${column?.title}`,
                     onClick: () => tableRef.current?.aggregateColumn(columnKey, 'average')
                 });
+
+                // Filter action
+                actions.push({
+                    label: `Filters ${column?.title}`,
+                    onClick: () => handleOpenFilterModal(columnKey)
+                });
             }
         } else {
             // Custom context menu actions for rows
@@ -305,46 +474,49 @@ const GenericDataTable = ({
         return actions;
     };
 
+    const displayData = getDisplayData();
+
     return (
         <div className="generic-data-table">
             {!modalMode && !hideToolbar && (
                 <div className="table-toolbar">
                     <Space>
-                        <Button icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>
+                        <Button className='rounded-sm elevation-custom' icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>
                             Refresh
                         </Button>
-                        <Button
-                            icon={<DownloadOutlined />}
-                            onClick={handleExport}
-                            disabled={data.length === 0}
+                        <Button className='rounded-sm elevation-custom'
+                                icon={<DownloadOutlined />}
+                                onClick={handleExport}
+                                disabled={displayData.length === 0}
                         >
-                            Export ({data.length})
+                            Export ({displayData.length})
                         </Button>
-                        <Button
-                            icon={<SaveOutlined />}
-                            onClick={handleShowSaveViewModal}
-                            disabled={data.length === 0}
+
+                        <Button className='rounded-sm elevation-custom'
+                                icon={<SaveOutlined />}
+                                onClick={handleShowSaveViewModal}
+                                disabled={displayData.length === 0}
                         >
                             Save Current View
                         </Button>
-                        <Button
-                            icon={<SettingOutlined />}
-                            onClick={handleShowColumnsModal}
-                            disabled={data.length === 0}
+                        <Button className='rounded-sm elevation-custom'
+                                icon={<SettingOutlined />}
+                                onClick={handleShowColumnsModal}
+                                disabled={displayData.length === 0}
                         >
                             Show/Hide Columns
                         </Button>
 
                         {/* Custom buttons from parent */}
                         {customButtons && customButtons.map((button, index) => (
-                            <Button
-                                key={index}
-                                icon={button.icon}
-                                onClick={button.onClick}
-                                disabled={button.disabled}
-                                type={button.type || 'default'}
-                                danger={button.danger}
-                                loading={button.loading}
+                            <Button className='rounded-sm elevation-custom'
+                                    key={index}
+                                    icon={button.icon}
+                                    onClick={button.onClick}
+                                    disabled={button.disabled}
+                                    type={button.type || 'default'}
+                                    danger={button.danger}
+                                    loading={button.loading}
                             >
                                 {button.label}
                             </Button>
@@ -368,10 +540,28 @@ const GenericDataTable = ({
                                 ))}
                             </Select>
                         )}
+                        {/* Clear All Filters button */}
+                        {isFilterActive && (
+                            <>
+                                <Button className='rounded-sm elevation-custom'
+                                        icon={<CloseOutlined />}
+                                        onClick={handleClearFilter}
+                                        type="default"
+                                        danger
+                                >
+                                    Clear All Filters
+                                </Button>
+
+                                <span className="active-filters-count">
+                  ({Object.keys(activeFilters).length} filter(s) active)
+                </span>
+                            </>
+                        )}
                     </Space>
 
                     <div className="table-info">
-                        Showing {data.length} records
+                        Showing {displayData.length} records
+                        {isFilterActive && ` (filtered from ${data.length} total)`}
                         {selectedRows.length > 0 && ` (${selectedRows.length} selected)`}
                     </div>
                 </div>
@@ -379,8 +569,8 @@ const GenericDataTable = ({
 
             <CustomDataTable
                 ref={tableRef}
-                data={data}
-                columns={columns}
+                data={displayData}
+                columns={getColumnsWithFilterIndicators()}
                 loading={loading}
                 selection={selection}
                 onSelectionChange={handleSelectionChange}
@@ -404,6 +594,67 @@ const GenericDataTable = ({
                 />
             )}
 
+            {/* Filter Modal */}
+            <Modal
+                open={filterModalVisible}
+                onClose={() => setFilterModalVisible(false)}
+                title={`Filter: ${columns.find(col => col.key === currentFilterColumn)?.title || currentFilterColumn}`}
+                onSubmit={handleApplyFilter}
+                submitLabel="Apply Filter"
+                cancelLabel="Cancel"
+                persistent={false}
+                maxWidth={500}
+            >
+                <div className="modal-content-wrapper">
+                    <p className="modal-description">
+                        Select filter type and enter value:
+                    </p>
+
+                    {/* Filter type combobox */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <label className="filter-label">Filter Type:</label>
+                        <SearchableComboBox
+                            value={filterType}
+                            onChange={setFilterType}
+                            items={[
+                                { id: 'equal', title: 'Equal to' },
+                                { id: 'less', title: 'Less than' },
+                                { id: 'greater', title: 'Greater than' }
+                            ]}
+                            itemTitle="title"
+                            itemValue="id"
+                            placeholder="Select filter type..."
+                            multiple={false}
+                        />
+                    </div>
+
+                    {/* Filter value input */}
+                    <div>
+                        <label className="filter-label">Value:</label>
+                        <CustomTextInput
+                            disabled={!filterType}
+                            value={filterValue}
+                            onChange={setFilterValue}
+                            type="number"
+                            placeholder="Enter numeric value..."
+                            clearable={true}
+                            autoFocus={true}
+                        />
+                    </div>
+
+                    {/* Column info */}
+                    {currentFilterColumn && (
+                        <div style={{ marginTop: '16px', padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+                            <small>
+                                Filtering column: <strong>{currentFilterColumn}</strong>
+                                <br />
+                                Data type: <strong>Number</strong>
+                            </small>
+                        </div>
+                    )}
+                </div>
+            </Modal>
+
             {/* Columns Configuration Modal */}
             <Modal
                 open={columnsModalVisible}
@@ -414,7 +665,7 @@ const GenericDataTable = ({
                         tableRef.current.updateColumns(selectedColumns, columnOrder);
                     }
                     setColumnsModalVisible(false);
-                    message.success('Columns updated successfully');
+                    toast.success('Columns updated successfully');
                 }}
                 submitLabel='Apply'
                 persistent={true}
@@ -424,6 +675,27 @@ const GenericDataTable = ({
                     <p className="modal-description">
                         Select and reorder columns to display in the table:
                     </p>
+
+                    {/* Select All / Deselect All buttons */}
+                    <div className="columns-bulk-actions" style={{ marginBottom: '16px' }}>
+                        <button
+                            className="custom-btn custom-btn-secondary"
+                            onClick={() => {
+                                setSelectedColumns(columns.map(col => col.key));
+                            }}
+                            style={{ marginRight: '8px' }}
+                        >
+                            Select All
+                        </button>
+                        <button
+                            className="custom-btn custom-btn-secondary"
+                            onClick={() => {
+                                setSelectedColumns([]);
+                            }}
+                        >
+                            Deselect All
+                        </button>
+                    </div>
 
                     <div className="columns-configuration">
                         <div className="columns-list">
