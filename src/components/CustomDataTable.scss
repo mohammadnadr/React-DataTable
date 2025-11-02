@@ -1,16 +1,23 @@
 // CustomDataTable.scss
+.generic-data-table {
+  max-height: 100%;
+}
 .custom-data-table{
-  //max-width: 1600px;
-  //max-height: 80vh;
-  overflow: auto;
+  //border: 1px solid #d9d9d9;
+  //border-radius: 8px;
+  max-width: 100%;
+  //max-height: calc(100vh - 310px);
+  overflow: scroll;
 
   .data-table {
-    border: 1px solid #d9d9d9;
-    border-radius: 6px;
-    width: 100%;
-    border-collapse: collapse;
+    //border: 1px solid #d9d9d9;
+    //border-radius: 8px;
+    //width: 100%;
+    border-collapse: separate;
     font-size: 14px;
-
+    th{
+      height: 43px;
+    }
     th, td {
       transition: background-color 0.2s;
       padding: 8px 12px;
@@ -133,12 +140,29 @@
     }
 
     .data-cell {
+      text-align: center;
       .cell-content {
         width: inherit;
         display: block;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        &.best-fit-enabled {
+          white-space: normal !important;
+          overflow: visible !important;
+          text-overflow: unset !important;
+          word-wrap: break-word;
+        }
+      }
+      &.best-fit-cell {
+        white-space: normal;
+        overflow: visible;
+
+        .cell-content {
+          white-space: normal !important;
+          overflow: visible !important;
+          text-overflow: unset !important;
+        }
       }
     }
 
@@ -209,7 +233,6 @@
     background-color: transparent !important;
 
     &.first-column-group {
-      // Ensure group header content starts from left with proper indentation
       text-align: left;
     }
   }
@@ -258,19 +281,282 @@
   background-color: #fafafa;
 }
 
-// Indentation for hierarchical groups
 .group-header-row[data-level="1"] .group-header-cell { padding-left: 20px; }
 .group-header-row[data-level="2"] .group-header-cell { padding-left: 40px; }
 .group-header-row[data-level="3"] .group-header-cell { padding-left: 60px; }
 .group-header-row[data-level="4"] .group-header-cell { padding-left: 80px; }
 
-// Ensure group headers span properly
 .group-header-row td:not(.first-column-group) {
   background: transparent !important;
   border: none !important;
 }
 
-// Style for regular data cells in grouped rows
 .data-row-item td {
   background: white;
 }roup-header-row[data-level="4"] .group-header-cell { padding-left: 80px; }
+
+
+.custom-data-table {
+
+  .data-table-container {
+    display: flex;
+    position: relative;
+    min-width: fit-content;
+    //overflow: hidden;
+    //max-width: 100%;
+    //max-height: 100%;
+  }
+
+  .pinned-columns-section {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background: white;
+    border-right: 2px solid #1890ff; // Border for pinned columns
+
+    .pinned-table {
+      position: relative;
+      z-index: 6;
+
+      th.pinned-column {
+        background-color: #f0f8ff;
+        border-right: 1px solid #91d5ff;
+
+        &.sorted-asc,
+        &.sorted-desc {
+          background-color: #e6f7ff;
+        }
+      }
+
+      td.pinned-cell {
+        background-color: #fafafa;
+        border-right: 1px solid #f0f0f0;
+        position: relative;
+
+        &::after {
+          content: '';
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          width: 1px;
+          background-color: #91d5ff;
+        }
+      }
+    }
+  }
+
+  .regular-columns-section {
+    //flex: 1;
+    //overflow-x: auto;
+    z-index: 4;
+
+    &.with-pinned {
+      margin-left: 0;
+    }
+
+    .regular-table {
+      min-width: 100%;
+    }
+  }
+
+  .group-header-row {
+    .pinned-cell {
+      background-color: #e6f7ff !important;
+    }
+  }
+
+  // Loading and empty states
+  .loading-cell,
+  .empty-cell {
+    text-align: center;
+    color: #666;
+    padding: 40px;
+  }
+
+}
+
+.custom-data-table {
+
+  .data-table-container {
+    display: flex;
+    position: relative;
+    //overflow: hidden;
+  }
+
+  .pinned-columns-section {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    background: white;
+    border-right: 2px solid #1890ff;
+
+    .pinned-table {
+      position: relative;
+      z-index: 6;
+
+      tbody tr {
+        height: auto;
+      }
+
+      th.pinned-column {
+        background-color: #f0f8ff;
+        border-right: 1px solid #91d5ff;
+
+        &.sorted-asc,
+        &.sorted-desc {
+          background-color: #e6f7ff;
+        }
+      }
+
+      td.pinned-cell {
+        background-color: #fafafa;
+        border-right: 1px solid #f0f0f0;
+        position: relative;
+        vertical-align: top;
+
+        &::after {
+          content: '';
+          position: absolute;
+          right: 0;
+          top: 0;
+          bottom: 0;
+          width: 1px;
+          background-color: #91d5ff;
+        }
+
+        // For group headers in pinned section
+        &.empty-group-cell {
+          background-color: #e6f7ff;
+          border-right: 1px solid #bae7ff;
+        }
+      }
+
+      .group-header-row {
+        td.pinned-cell {
+          background-color: #e6f7ff !important;
+          border-bottom: 1px solid #bae7ff;
+
+          &:first-child {
+            .group-header-cell {
+              min-height: 40px;
+              display: flex;
+              align-items: center;
+            }
+          }
+
+          &:not(:first-child) {
+            background-color: #e6f7ff !important;
+          }
+        }
+      }
+    }
+  }
+
+  .regular-columns-section {
+    flex: 1;
+    //overflow-x: auto;
+
+    &.with-pinned {
+      margin-left: 0;
+    }
+
+    .regular-table {
+      min-width: 100%;
+
+      tbody tr {
+        height: auto;
+      }
+    }
+  }
+
+  .pinned-table tbody tr,
+  .regular-table tbody tr {
+
+    min-height: 40px;
+
+    &.group-header-row {
+      min-height: 50px;
+
+      td {
+        vertical-align: middle;
+      }
+    }
+
+    &.data-row {
+      min-height: 40px;
+
+      td {
+        vertical-align: middle;
+        padding: 8px 12px;
+      }
+    }
+  }
+
+  .group-header-cell {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+    width: 100%;
+
+    .group-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+      }
+    }
+
+    .group-label {
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .group-value {
+      font-weight: 600;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    .group-count {
+      color: #666;
+      font-size: 0.9em;
+      flex-shrink: 0;
+    }
+
+    .group-total {
+      color: #666;
+      font-size: 0.9em;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+  }
+
+}
+
+.data-table {
+  th, td {
+    padding: 8px 12px;
+    vertical-align: middle;
+    line-height: 1.4;
+
+    text-align: left;
+  }
+
+  .group-header-row {
+    td {
+      padding: 8px 12px;
+    }
+  }
+}
+td{
+  height: 46px !important;
+}

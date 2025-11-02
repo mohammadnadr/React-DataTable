@@ -1,7 +1,7 @@
 // SearchableComboBox.jsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Input, Tag, Tooltip } from 'antd';
-import { SearchOutlined, CloseOutlined, DownOutlined } from '@ant-design/icons';
+import {  Tag, } from 'antd';
+import { CloseOutlined, DownOutlined } from '@ant-design/icons';
 import './SearchableComboBox.scss';
 
 const SearchableComboBox = ({

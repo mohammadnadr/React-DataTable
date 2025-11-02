@@ -1,7 +1,7 @@
 // GenericDataTable.jsx
-import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { Button, Space, Input, Select, message } from 'antd';
-import { toast, Bounce } from 'react-toastify';
+import React, {useState, useEffect, useRef} from 'react';
+import {Button, Input, Select, Space,} from 'antd';
+import { toast } from 'react-toastify';
 
 import Modal from './Modal';
 import { DownloadOutlined, ReloadOutlined, SettingOutlined, SaveOutlined, CloseOutlined, FilterOutlined } from '@ant-design/icons';
@@ -15,6 +15,9 @@ import './GenericDataTable.scss';
 import * as XLSX from 'xlsx';
 
 const { Option } = Select;
+
+// Maximum number of pinned columns
+const MAX_PINNED_COLUMNS = 3;
 
 const GenericDataTable = ({
                               data = [],
@@ -53,6 +56,7 @@ const GenericDataTable = ({
     const [selectedColumns, setSelectedColumns] = useState([]);
     const [columnOrder, setColumnOrder] = useState([]);
     const [savedViews, setSavedViews] = useState([]);
+    const [pinnedColumns, setPinnedColumns] = useState([]);
 
     // Filter related states
     const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -69,14 +73,43 @@ const GenericDataTable = ({
     useEffect(() => {
         if (modalMode) return;
         try {
-            const localViews = JSON.parse(localStorage.getItem(`${title}_views`) || '[]');
+            const storageKey = `${title}_views`;
+            const localViews = JSON.parse(localStorage.getItem(storageKey) || '[]');
             setSavedViews(localViews);
         } catch (error) {
             console.error('Error loading saved views:', error);
-            toast.error('Error loading saved views:');
+            toast.error('Error loading saved views');
             setSavedViews([]);
         }
     }, [title]);
+
+    // Pin column function
+    const handlePinColumn = (columnKey) => {
+        if (pinnedColumns.length >= MAX_PINNED_COLUMNS) {
+            toast.error(`You can only pin up to ${MAX_PINNED_COLUMNS} columns`);
+            return;
+        }
+
+        if (!pinnedColumns.includes(columnKey)) {
+            const newPinnedColumns = [...pinnedColumns, columnKey];
+            setPinnedColumns(newPinnedColumns);
+        }
+    };
+
+    // Unpin column function
+    const handleUnpinColumn = (columnKey) => {
+        const newPinnedColumns = pinnedColumns.filter(col => col !== columnKey);
+        setPinnedColumns(newPinnedColumns);
+    };
+
+    // Toggle pin column
+    const handleTogglePinColumn = (columnKey) => {
+        if (pinnedColumns.includes(columnKey)) {
+            handleUnpinColumn(columnKey);
+        } else {
+            handlePinColumn(columnKey);
+        }
+    };
 
     // Apply all active filters to data
     const applyAllFilters = (filters, originalData) => {
@@ -347,6 +380,7 @@ const GenericDataTable = ({
                 sortConfig: viewData.sortConfig,
                 activeGroups: viewData.activeGroups || [],
                 expandedGroups: viewData.expandedGroups || [],
+                pinnedColumns: pinnedColumns,
                 createdAt: new Date().toISOString()
             };
 
@@ -378,6 +412,12 @@ const GenericDataTable = ({
         const view = savedViews.find(v => v.id === viewId);
         if (view && tableRef.current) {
             tableRef.current.applyView(view);
+            // Apply pinned columns from saved view
+            if (view.pinnedColumns) {
+                setPinnedColumns(view.pinnedColumns);
+            } else {
+                setPinnedColumns([]);
+            }
             toast.success(`View "${view.name}" loaded successfully`);
         }
     };
@@ -405,6 +445,13 @@ const GenericDataTable = ({
 
         if (isHeaderMenu) {
             const column = columns.find(col => col.key === columnKey);
+            const isPinned = pinnedColumns.includes(columnKey);
+
+            // Pin/Unpin action
+            actions.push({
+                label: isPinned ? `Unpin ${column?.title}` : `Pin ${column?.title}`,
+                onClick: () => handleTogglePinColumn(columnKey)
+            });
 
             // Best Fit
             actions.push({
@@ -431,7 +478,6 @@ const GenericDataTable = ({
             // Group management actions
             const activeGroups = tableRef.current?.getActiveGroups() || [];
             if (activeGroups.length > 0) {
-                actions.push({ type: 'divider' });
                 actions.push({
                     label: 'Expand All Groups',
                     onClick: () => tableRef.current?.expandAllGroups()
@@ -448,7 +494,6 @@ const GenericDataTable = ({
 
             // Aggregation actions
             if (enableAggregation && column?.type === 'number') {
-                actions.push({ type: 'divider' });
                 actions.push({
                     label: `Sum ${column?.title}`,
                     onClick: () => tableRef.current?.aggregateColumn(columnKey, 'sum')
@@ -571,6 +616,7 @@ const GenericDataTable = ({
                 ref={tableRef}
                 data={displayData}
                 columns={getColumnsWithFilterIndicators()}
+                pinnedColumns={pinnedColumns}
                 loading={loading}
                 selection={selection}
                 onSelectionChange={handleSelectionChange}

@@ -1,12 +1,13 @@
 // CustomDataTable.jsx
-import React, { useEffect, useState, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, {  useState, useMemo, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Tooltip, Tag, Button } from 'antd';
 import './CustomDataTable.scss';
-import { CaretDownOutlined, CaretRightOutlined, SortAscendingOutlined, SortDescendingOutlined } from '@ant-design/icons';
+import { CaretDownOutlined, CaretRightOutlined, SortAscendingOutlined, SortDescendingOutlined, HolderOutlined } from '@ant-design/icons';
 
 const CustomDataTable = forwardRef(({
                                         data = [],
                                         columns = [],
+                                        pinnedColumns = [],
                                         loading = false,
                                         selection = false,
                                         onSelectionChange = () => {},
@@ -31,6 +32,13 @@ const CustomDataTable = forwardRef(({
     const [draggedColKey, setDraggedColKey] = useState(null);
     const [dragOverColKey, setDragOverColKey] = useState(null);
     const dragActiveRef = useRef(false);
+
+    // Separate pinned and regular columns
+    const { pinnedColumns: displayPinnedColumns, regularColumns: displayRegularColumns } = useMemo(() => {
+        const pinned = columns.filter(col => pinnedColumns.includes(col.key));
+        const regular = columns.filter(col => !pinnedColumns.includes(col.key));
+        return { pinnedColumns: pinned, regularColumns: regular };
+    }, [columns, pinnedColumns]);
 
     // Process and sort data
     const processedData = useMemo(() => {
@@ -59,6 +67,100 @@ const CustomDataTable = forwardRef(({
         return processed;
     }, [data, sortConfig]);
 
+    // Build hierarchical grouped data
+    const buildHierarchicalData = useMemo(() => {
+        if (activeGroups.length === 0) {
+            return processedData.map(item => ({
+                ...item,
+                _level: 0,
+                _isDataRow: true
+            }));
+        }
+
+        const groupDataRecursively = (items, level = 0, parentGroupPath = []) => {
+            if (level >= activeGroups.length) {
+                return items.map(item => ({
+                    ...item,
+                    _level: level,
+                    _groupPath: [...parentGroupPath],
+                    _isDataRow: true,
+                    _parentGroupId: parentGroupPath.length > 0 ? parentGroupPath[parentGroupPath.length - 1].groupId : null
+                }));
+            }
+
+            const currentGroupKey = activeGroups[level];
+            const groups = {};
+
+            // Group items by current level
+            items.forEach(item => {
+                const groupValue = item[currentGroupKey] || 'Unknown';
+                const groupId = `group-${currentGroupKey}-${groupValue}-${level}-${parentGroupPath.map(p => p.groupId).join('-')}`;
+
+                if (!groups[groupId]) {
+                    groups[groupId] = {
+                        groupValue,
+                        items: [],
+                        groupId,
+                        groupKey: currentGroupKey
+                    };
+                }
+                groups[groupId].items.push(item);
+            });
+
+            const result = [];
+
+            // Create group headers and recursively process subgroups
+            Object.values(groups).forEach(({ groupValue, items, groupId, groupKey }) => {
+                const currentGroupPath = [...parentGroupPath, {
+                    key: groupKey,
+                    value: groupValue,
+                    groupId: groupId
+                }];
+
+                // Add group header
+                result.push({
+                    id: groupId,
+                    _isGroupHeader: true,
+                    _groupKey: groupId,
+                    _level: level,
+                    _groupPath: currentGroupPath,
+                    groupColumn: groupKey,
+                    groupValue: groupValue,
+                    itemCount: items.length,
+                    totalAmount: items.reduce((sum, item) => sum + (item.amount || item.extendedAmount || 0), 0),
+                    _parentGroupId: parentGroupPath.length > 0 ? parentGroupPath[parentGroupPath.length - 1].groupId : null
+                });
+
+                // Add subgroup items if group is expanded
+                if (expandedGroups.has(groupId)) {
+                    const subgroupItems = groupDataRecursively(items, level + 1, currentGroupPath);
+                    result.push(...subgroupItems);
+                }
+            });
+
+            return result;
+        };
+
+        return groupDataRecursively(processedData);
+    }, [processedData, activeGroups, expandedGroups]);
+
+    // Display data
+    const displayData = useMemo(() => {
+        return buildHierarchicalData;
+    }, [buildHierarchicalData]);
+
+    // Visible & ordered columns for regular section
+    const displayRegularColumnsFiltered = useMemo(() => {
+        const filtered = displayRegularColumns.filter(col => visibleColumns.includes(col.key));
+        return filtered.sort((a, b) => columnOrder.indexOf(a.key) - columnOrder.indexOf(b.key));
+    }, [displayRegularColumns, visibleColumns, columnOrder]);
+
+    // Pinned columns (always visible and in pin order)
+    const displayPinnedColumnsFiltered = useMemo(() => {
+        return displayPinnedColumns.filter(col => visibleColumns.includes(col.key))
+            .sort((a, b) => pinnedColumns.indexOf(a.key) - pinnedColumns.indexOf(b.key));
+    }, [displayPinnedColumns, visibleColumns, pinnedColumns]);
+
     // Helper function to check if row is selected
     const isRowSelected = (rowId) => {
         return selectedRows.some(row => row.id === rowId);
@@ -80,7 +182,7 @@ const CustomDataTable = forwardRef(({
         // Remove from expanded groups as well
         const newExpandedGroups = new Set(expandedGroups);
         expandedGroups.forEach(groupId => {
-            if (groupId.includes(columnKey)) {
+            if (groupId.includes(`group-${columnKey}`)) {
                 newExpandedGroups.delete(groupId);
             }
         });
@@ -92,84 +194,27 @@ const CustomDataTable = forwardRef(({
         setExpandedGroups(new Set());
     };
 
-    // Build hierarchical grouped data
-    const buildHierarchicalData = useMemo(() => {
-        if (activeGroups.length === 0) {
-            return processedData.map(item => ({
-                ...item,
-                _level: 0,
-                _isDataRow: true
-            }));
-        }
-
-        const groupDataRecursively = (items, level = 0, groupPath = []) => {
-            if (level >= activeGroups.length) {
-                return items.map(item => ({
-                    ...item,
-                    _level: level,
-                    _groupPath: [...groupPath],
-                    _isDataRow: true
-                }));
-            }
-
-            const currentGroupKey = activeGroups[level];
-            const groups = {};
-
-            // Group items by current level
-            items.forEach(item => {
-                const groupValue = item[currentGroupKey] || 'Unknown';
-                if (!groups[groupValue]) {
-                    groups[groupValue] = [];
-                }
-                groups[groupValue].push(item);
-            });
-
-            const result = [];
-
-            // Create group headers and recursively process subgroups
-            Object.entries(groups).forEach(([groupValue, groupItems]) => {
-                const groupId = `group-${currentGroupKey}-${groupValue}-${level}`;
-                const newGroupPath = [...groupPath, { key: currentGroupKey, value: groupValue }];
-
-                // Add group header
-                result.push({
-                    id: groupId,
-                    _isGroupHeader: true,
-                    _groupKey: groupId,
-                    _level: level,
-                    _groupPath: newGroupPath,
-                    groupColumn: currentGroupKey,
-                    groupValue: groupValue,
-                    itemCount: groupItems.length,
-                    totalAmount: groupItems.reduce((sum, item) => sum + (item.amount || item.extendedAmount || 0), 0)
-                });
-
-                // Add subgroup items if group is expanded
-                if (expandedGroups.has(groupId)) {
-                    const subgroupItems = groupDataRecursively(groupItems, level + 1, newGroupPath);
-                    result.push(...subgroupItems);
-                }
-            });
-
-            return result;
-        };
-
-        return groupDataRecursively(processedData);
-    }, [processedData, activeGroups, expandedGroups]);
-
-    // Display data
-    const displayData = useMemo(() => {
-        return buildHierarchicalData;
-    }, [buildHierarchicalData]);
-
     // Handle group toggle
     const handleGroupToggle = (groupId) => {
         const newExpandedGroups = new Set(expandedGroups);
+
         if (newExpandedGroups.has(groupId)) {
-            newExpandedGroups.delete(groupId);
+            // Collapse group - remove this group and all its children
+            const groupsToRemove = [groupId];
+
+            // Find all child groups
+            displayData.forEach(item => {
+                if (item._isGroupHeader && item._parentGroupId === groupId) {
+                    groupsToRemove.push(item.id);
+                }
+            });
+
+            groupsToRemove.forEach(id => newExpandedGroups.delete(id));
         } else {
+            // Expand group
             newExpandedGroups.add(groupId);
         }
+
         setExpandedGroups(newExpandedGroups);
     };
 
@@ -241,6 +286,13 @@ const CustomDataTable = forwardRef(({
     // Column reordering handlers
     const onHeaderDragStart = (e, colKey) => {
         if (!enableColumnReordering) return;
+
+        // Prevent dragging pinned columns
+        if (pinnedColumns.includes(colKey)) {
+            e.preventDefault();
+            return;
+        }
+
         setDraggedColKey(colKey);
         dragActiveRef.current = true;
         try { e.dataTransfer.setData('text/plain', colKey); } catch {}
@@ -339,7 +391,8 @@ const CustomDataTable = forwardRef(({
             sortConfig: sortConfig,
             activeGroups: activeGroups,
             expandedGroups: Array.from(expandedGroups),
-            aggregations: columnAggregations
+            aggregations: columnAggregations,
+            pinnedColumns: pinnedColumns
         }),
         applyView: (view) => {
             if (view.columns) setVisibleColumns(view.columns);
@@ -348,6 +401,7 @@ const CustomDataTable = forwardRef(({
             if (view.activeGroups) setActiveGroups(view.activeGroups);
             if (view.expandedGroups) setExpandedGroups(new Set(view.expandedGroups));
             if (view.aggregations) setColumnAggregations(view.aggregations);
+            // pinnedColumns will be handled by parent component
         },
         toggleBestFit: () => handleBestFit(),
         isBestFitEnabled: () => bestFitEnabled
@@ -356,9 +410,12 @@ const CustomDataTable = forwardRef(({
     // Cell renderers
     const renderCellContent = (row, column) => {
         if (row._isGroupHeader) {
-            // For group headers, only show content in the first column
+            // For group headers in pinned section, only show in first column
+            const displayColumns = displayPinnedColumnsFiltered.length > 0 ?
+                displayPinnedColumnsFiltered : displayRegularColumnsFiltered;
+
             if (displayColumns[0] && column.key === displayColumns[0].key) {
-                const column = columns.find(col => col.key === row.groupColumn);
+                const groupColumn = columns.find(col => col.key === row.groupColumn);
                 return (
                     <div className="group-header-cell" style={{ paddingLeft: `${row._level * 20}px` }}>
                         <button
@@ -369,19 +426,14 @@ const CustomDataTable = forwardRef(({
                             {expandedGroups.has(row.id) ? <CaretDownOutlined /> : <CaretRightOutlined />}
                         </button>
                         <span className="group-label" style={{ fontWeight: 'bold', marginRight: '8px' }}>
-              {column?.title || row.groupColumn}:
+              {groupColumn?.title || row.groupColumn}:
             </span>
                         <span className="group-value" style={{ marginRight: '12px' }}>{row.groupValue}</span>
                         <span className="group-count" style={{ color: '#666' }}>({row.itemCount} items)</span>
-                        {row.totalAmount > 0 && (
-                            <span className="group-total" style={{ marginLeft: '12px', color: '#666' }}>
-                Total: ${row.totalAmount.toLocaleString()}
-              </span>
-                        )}
                     </div>
                 );
             }
-            // For other columns in group header rows, show empty
+            // For other columns in group header rows in pinned section, show empty
             return null;
         }
 
@@ -406,6 +458,152 @@ const CustomDataTable = forwardRef(({
         );
     };
 
+    // Render table header for a column set
+    const renderTableHeader = (columnsToRender, isPinnedSection = false) => {
+        return (
+            <tr>
+                {selection && !isPinnedSection && (
+                    <th className="selection-column">
+                        <input
+                            type="checkbox"
+                            checked={selectedRows.length > 0 && selectedRows.length === processedData.length}
+                            onChange={(e) => handleSelectAll(e.target.checked)}
+                            className="row-checkbox"
+                        />
+                    </th>
+                )}
+
+                {columnsToRender.map((column) => {
+                    const isDragged = draggedColKey === column.key;
+                    const isDragOver = dragOverColKey === column.key;
+
+                    return (
+                        <th
+                            key={column.key}
+                            style={{ width: column.width || 'auto' }}
+                            className={`column-header ${column.sortable ? 'sortable' : ''} ${
+                                sortConfig.key === column.key ? `sorted-${sortConfig.direction}` : ''
+                            } ${isDragged ? 'is-dragged' : ''} ${isDragOver ? 'is-drag-over' : ''} ${
+                                isPinnedSection ? 'pinned-column' : ''
+                            }`}
+                            onClick={() => column.sortable && handleSort(column.key)}
+                            onContextMenu={(e) => onContextMenu && handleContextMenu(e, null, 'header', column.key)}
+                            draggable={enableColumnReordering && !isPinnedSection}
+                            onDragStart={(e) => enableColumnReordering && !isPinnedSection && onHeaderDragStart(e, column.key)}
+                            onDragOver={(e) => enableColumnReordering && !isPinnedSection && onHeaderDragOver(e, column.key)}
+                            onDrop={(e) => enableColumnReordering && !isPinnedSection && onHeaderDrop(e, column.key)}
+                            onDragEnd={enableColumnReordering && !isPinnedSection ? onHeaderDragEnd : undefined}
+                        >
+                            <div className="header-content">
+                                {enableColumnReordering && !isPinnedSection && (
+                                    <span className="drag-handle" aria-hidden="true"><HolderOutlined /></span>
+                                )}
+                                <span className="column-title">{column.title}</span>
+                                {column.sortable && (
+                                    <span className="sort-indicator">
+                    {sortConfig.key === column.key
+                        ? sortConfig.direction === 'asc'
+                            ? <SortAscendingOutlined style={{fontSize:'24px'}}/>
+                            : <SortDescendingOutlined style={{fontSize:'24px'}} />
+                        : '↕'}
+                  </span>
+                                )}
+                                {enableAggregation && columnAggregations[column.key] && (
+                                    <Tooltip
+                                        title={`${columnAggregations[column.key].operation}: ${columnAggregations[column.key].formattedValue}`}
+                                        placement="top"
+                                    >
+                                        <Tag
+                                            color={
+                                                columnAggregations[column.key].operation === 'sum' ? 'cyan' :
+                                                    columnAggregations[column.key].operation === 'average' ? 'green' : 'gold'
+                                            }
+                                            style={{ fontSize: '11px', cursor: 'pointer', marginLeft: '4px' }}
+                                        >
+                                            {columnAggregations[column.key].operation === 'sum' ? '∑' : 'Avg'}: {columnAggregations[column.key].formattedValue}
+                                        </Tag>
+                                    </Tooltip>
+                                )}
+                            </div>
+                        </th>
+                    );
+                })}
+            </tr>
+        );
+    };
+
+    // Render table body rows for a column set
+    const renderTableBody = (columnsToRender, isPinnedSection = false) => {
+        return displayData.map((row, index) => {
+            const isGroupHeader = row._isGroupHeader;
+            const isDataRow = row._isDataRow;
+            const isSelected = isRowSelected(row.id);
+
+            // For pinned section, only show content in first column for group headers
+            const shouldRenderCell = (column, colIndex) => {
+                if (isPinnedSection && isGroupHeader) {
+                    // In pinned section, only show group header content in first column
+                    return colIndex === 0;
+                }
+                return true;
+            };
+
+            return (
+                <tr
+                    key={row.id || index}
+                    className={`${isGroupHeader ? 'group-header-row' : 'data-row'} ${
+                        isSelected ? 'selected' : ''
+                    } ${isDataRow ? 'data-row-item' : ''} ${rowClassName}`}
+                    data-level={row._level}
+                    onContextMenu={(e) => onContextMenu && isDataRow && handleContextMenu(e, row, 'row')}
+                >
+                    {selection && !isPinnedSection && (
+                        <td className="selection-column">
+                            {isDataRow && (
+                                <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => handleRowSelect(row, e.target.checked)}
+                                    className="row-checkbox"
+                                />
+                            )}
+                        </td>
+                    )}
+
+                    {columnsToRender.map((column, colIndex) => {
+                        if (!shouldRenderCell(column, colIndex)) {
+                            return (
+                                <td
+                                    key={column.key}
+                                    style={{ width: column.width || 'auto' }}
+                                    className={`data-cell ${column.type || ''} ${
+                                        isGroupHeader ? 'group-cell' : ''
+                                    } ${isPinnedSection ? 'pinned-cell' : ''} empty-group-cell`}
+                                >
+                                    {/* Empty cell for group headers in pinned section (except first column) */}
+                                </td>
+                            );
+                        }
+
+                        return (
+                            <td
+                                key={column.key}
+                                style={{ width: column.width || 'auto' }}
+                                className={`data-cell ${column.type || ''} ${
+                                    isGroupHeader ? 'group-cell' : ''
+                                } ${colIndex === 0 && isGroupHeader ? 'first-column-group' : ''} ${
+                                    isPinnedSection ? 'pinned-cell' : ''
+                                }`}
+                            >
+                                {renderCellContent(row, column)}
+                            </td>
+                        );
+                    })}
+                </tr>
+            );
+        });
+    };
+
     // Active groups display component
     const ActiveGroupsDisplay = () => {
         if (activeGroups.length === 0) return null;
@@ -417,12 +615,11 @@ const CustomDataTable = forwardRef(({
                     {activeGroups.map((groupKey, index) => {
                         const column = columns.find(col => col.key === groupKey);
                         return (
-                            <>
+                            <React.Fragment key={groupKey}>
                                 <Tag
-                                    key={groupKey}
                                     closable
                                     onClose={() => removeGroup(groupKey)}
-                                    className="group-tag"
+                                    className="group-tag m-0"
                                     color="blue"
                                 >
                                     {column?.title || groupKey}
@@ -430,9 +627,7 @@ const CustomDataTable = forwardRef(({
                                 {index < activeGroups.length - 1 && (
                                     <span className="group-separator"> → </span>
                                 )}
-                            </>
-
-
+                            </React.Fragment>
                         );
                     })}
                     {activeGroups.length > 0 && (
@@ -450,146 +645,38 @@ const CustomDataTable = forwardRef(({
         );
     };
 
-    // Visible & ordered columns
-    const displayColumns = useMemo(() => {
-        const filtered = columns.filter(col => visibleColumns.includes(col.key));
-        return filtered.sort((a, b) => columnOrder.indexOf(a.key) - columnOrder.indexOf(b.key));
-    }, [columns, visibleColumns, columnOrder]);
-
     return (
         <div className="custom-data-table">
             {/* Active Groups Display */}
             <ActiveGroupsDisplay />
 
-            <table className="data-table">
-                {/* Table Header */}
-                <thead className={stickyHeader ? 'sticky-header' : ''}>
-                <tr>
-                    {selection && (
-                        <th className="selection-column">
-                            <input
-                                type="checkbox"
-                                checked={selectedRows.length > 0 && selectedRows.length === processedData.length}
-                                onChange={(e) => handleSelectAll(e.target.checked)}
-                                className="row-checkbox"
-                            />
-                        </th>
-                    )}
-
-                    {displayColumns.map((column) => {
-                        const isDragged = draggedColKey === column.key;
-                        const isDragOver = dragOverColKey === column.key;
-
-                        return (
-                            <th
-                                key={column.key}
-                                style={{ width: column.width || 'auto' }}
-                                className={`column-header ${column.sortable ? 'sortable' : ''} ${
-                                    sortConfig.key === column.key ? `sorted-${sortConfig.direction}` : ''
-                                } ${isDragged ? 'is-dragged' : ''} ${isDragOver ? 'is-drag-over' : ''}`}
-                                onClick={() => column.sortable && handleSort(column.key)}
-                                onContextMenu={(e) => onContextMenu && handleContextMenu(e, null, 'header', column.key)}
-                                draggable={enableColumnReordering}
-                                onDragStart={(e) => enableColumnReordering && onHeaderDragStart(e, column.key)}
-                                onDragOver={(e) => enableColumnReordering && onHeaderDragOver(e, column.key)}
-                                onDrop={(e) => enableColumnReordering && onHeaderDrop(e, column.key)}
-                                onDragEnd={enableColumnReordering ? onHeaderDragEnd : undefined}
-                            >
-                                <div className="header-content">
-                                    {enableColumnReordering && (
-                                        <span className="drag-handle" aria-hidden="true">⋮⋮</span>
-                                    )}
-                                    <span className="column-title">{column.title}</span>
-                                    {column.sortable && (
-                                        <span className="sort-indicator">
-                        {sortConfig.key === column.key
-                            ? sortConfig.direction === 'asc'
-                                ? <SortAscendingOutlined style={{fontSize:'24px'}}/>
-                                : <SortDescendingOutlined style={{fontSize:'24px'}} />
-                            : '↕'}
-                      </span>
-                                    )}
-                                    {enableAggregation && columnAggregations[column.key] && (
-                                        <Tooltip
-                                            title={`${columnAggregations[column.key].operation}: ${columnAggregations[column.key].formattedValue}`}
-                                            placement="top"
-                                        >
-                                            <Tag
-                                                color={
-                                                    columnAggregations[column.key].operation === 'sum' ? 'cyan' :
-                                                        columnAggregations[column.key].operation === 'average' ? 'green' : 'gold'
-                                                }
-                                                style={{ fontSize: '11px', cursor: 'pointer', marginLeft: '4px' }}
-                                            >
-                                                {columnAggregations[column.key].operation === 'sum' ? '∑' : 'Avg'}: {columnAggregations[column.key].formattedValue}
-                                            </Tag>
-                                        </Tooltip>
-                                    )}
-                                </div>
-                            </th>
-                        );
-                    })}
-                </tr>
-                </thead>
-
-                {/* Table Body */}
-                <tbody>
-                {loading ? (
-                    <tr>
-                        <td colSpan={displayColumns.length + (selection ? 1 : 0)} className="loading-cell">
-                            Loading...
-                        </td>
-                    </tr>
-                ) : displayData.length === 0 ? (
-                    <tr>
-                        <td colSpan={displayColumns.length + (selection ? 1 : 0)} className="empty-cell">
-                            No data available
-                        </td>
-                    </tr>
-                ) : (
-                    displayData.map((row, index) => {
-                        const isGroupHeader = row._isGroupHeader;
-                        const isDataRow = row._isDataRow;
-                        const isSelected = isRowSelected(row.id);
-
-                        return (
-                            <tr
-                                key={row.id || index}
-                                className={`${isGroupHeader ? 'group-header-row' : 'data-row'} ${
-                                    isSelected ? 'selected' : ''
-                                } ${isDataRow ? 'data-row-item' : ''} ${rowClassName}`}
-                                data-level={row._level}
-                                onContextMenu={(e) => onContextMenu && isDataRow && handleContextMenu(e, row, 'row')}
-                            >
-                                {selection && (
-                                    <td className="selection-column">
-                                        {isDataRow && (
-                                            <input
-                                                type="checkbox"
-                                                checked={isSelected}
-                                                onChange={(e) => handleRowSelect(row, e.target.checked)}
-                                                className="row-checkbox"
-                                            />
-                                        )}
-                                    </td>
-                                )}
-                                {displayColumns.map((column, colIndex) => (
-                                    <td
-                                        key={column.key}
-                                        style={{ width: column.width || 'auto' }}
-                                        className={`data-cell ${column.type || ''} ${
-                                            isGroupHeader ? 'group-cell' : ''
-                                        } ${colIndex === 0 && isGroupHeader ? 'first-column-group' : ''}`}
-                                    >
-                                        {renderCellContent(row, column)}
-                                    </td>
-                                ))}
-                            </tr>
-                        );
-                    })
+            <div className="data-table-container">
+                {/* Pinned Columns Section */}
+                {displayPinnedColumnsFiltered.length > 0 && (
+                    <div className="pinned-columns-section">
+                        <table className="data-table pinned-table">
+                            <thead className={stickyHeader ? 'sticky-header' : ''}>
+                            {renderTableHeader(displayPinnedColumnsFiltered, true)}
+                            </thead>
+                            <tbody>
+                            {renderTableBody(displayPinnedColumnsFiltered, true)}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
-                </tbody>
-            </table>
+
+                {/* Regular Columns Section */}
+                <div className={`regular-columns-section ${displayPinnedColumnsFiltered.length > 0 ? 'with-pinned' : ''}`}>
+                    <table className="data-table regular-table">
+                        <thead className={stickyHeader ? 'sticky-header' : ''}>
+                        {renderTableHeader(displayRegularColumnsFiltered)}
+                        </thead>
+                        <tbody>
+                        {renderTableBody(displayRegularColumnsFiltered)}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 });
