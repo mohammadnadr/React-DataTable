@@ -195,146 +195,146 @@ const CashFlowTable = ({ data, loading, currentView }) => {
                 sortable: true,
                 type: 'number'
             },
-            {
-                key: 'costPercentage',
-                title: 'Cost %',
-                width: '90px',
-                sortable: true,
-                type: 'number'
-            },
-            {
-                key: 'extendedAmount',
-                title: 'Extended Amount',
-                width: '150px',
-                sortable: true,
-                type: 'number'
-            },
-            {
-                key: 'invoiceNumber',
-                title: 'Invoice Number',
-                width: '140px',
-                sortable: true,
-                type: 'string'
-            },
-            {
-                key: 'invoiceStatus',
-                title: 'Invoice Status',
-                width: '140px',
-                sortable: true,
-                type: 'string'
-            },
-            {
-                key: 'payableReceivables',
-                title: 'Payable/Receivables',
-                width: '160px',
-                sortable: true,
-                type: 'string'
-            },
-            {
-                key: 'paymentDueDate',
-                title: 'Payment Due Date',
-                width: '150px',
-                sortable: true,
-                type: 'date'
-            },
-            {
-                key: 'adjustedDueDate',
-                title: 'Adjusted Due Date',
-                width: '150px',
-                sortable: true,
-                type: 'date'
-            },
-            {
-                key: 'paymentStatus',
-                title: 'Payment Status',
-                width: '140px',
-                sortable: true,
-                type: 'string'
-            },
-            {
-                key: 'paymentDate',
-                title: 'Payment Date',
-                width: '120px',
-                sortable: true,
-                type: 'date'
-            },
-            {
-                key: 'itineraryNumber',
-                title: 'Itinerary Number',
-                width: '140px',
-                sortable: true,
-                type: 'string'
-            },
-            {
-                key: 'deliveryNumber',
-                title: 'Delivery Number',
-                width: '140px',
-                sortable: true,
-                type: 'string'
-            },
-            {
-                key: 'storage',
-                title: 'Storage',
-                width: '120px',
-                sortable: true,
-                type: 'string'
-            },
-            {
-                key: 'level',
-                title: 'Level',
-                width: '100px',
-                sortable: true,
-                type: 'string'
-            },
-            {
-                key: 'commencementDate',
-                title: 'Commencement Date',
-                width: '150px',
-                sortable: true,
-                type: 'date'
-            },
-            {
-                key: 'pricingStartDate',
-                title: 'Pricing Start Date',
-                width: '150px',
-                sortable: true,
-                type: 'date'
-            },
-            {
-                key: 'pricingEndDate',
-                title: 'Pricing End Date',
-                width: '150px',
-                sortable: true,
-                type: 'date'
-            },
-            {
-                key: 'quantityStatus',
-                title: 'Quantity Status',
-                width: '130px',
-                sortable: true,
-                type: 'string'
-            },
-            {
-                key: 'exposure',
-                title: 'Exposure',
-                width: '100px',
-                sortable: true,
-                type: 'number'
-            },
-            {
-                key: 'priceSource',
-                title: 'Price Source',
-                width: '120px',
-                sortable: true,
-                type: 'string'
-            },
-            {
-                key: 'paymentDescription',
-                title: 'Payment Description',
-                width: '160px',
-                sortable: true,
-                type: 'string'
-            }
+            // {
+            //     key: 'costPercentage',
+            //     title: 'Cost %',
+            //     width: '90px',
+            //     sortable: true,
+            //     type: 'number'
+            // },
+            // {
+            //     key: 'extendedAmount',
+            //     title: 'Extended Amount',
+            //     width: '150px',
+            //     sortable: true,
+            //     type: 'number'
+            // },
+            // {
+            //     key: 'invoiceNumber',
+            //     title: 'Invoice Number',
+            //     width: '140px',
+            //     sortable: true,
+            //     type: 'string'
+            // },
+            // {
+            //     key: 'invoiceStatus',
+            //     title: 'Invoice Status',
+            //     width: '140px',
+            //     sortable: true,
+            //     type: 'string'
+            // },
+            // {
+            //     key: 'payableReceivables',
+            //     title: 'Payable/Receivables',
+            //     width: '160px',
+            //     sortable: true,
+            //     type: 'string'
+            // },
+            // {
+            //     key: 'paymentDueDate',
+            //     title: 'Payment Due Date',
+            //     width: '150px',
+            //     sortable: true,
+            //     type: 'date'
+            // },
+            // {
+            //     key: 'adjustedDueDate',
+            //     title: 'Adjusted Due Date',
+            //     width: '150px',
+            //     sortable: true,
+            //     type: 'date'
+            // },
+            // {
+            //     key: 'paymentStatus',
+            //     title: 'Payment Status',
+            //     width: '140px',
+            //     sortable: true,
+            //     type: 'string'
+            // },
+            // {
+            //     key: 'paymentDate',
+            //     title: 'Payment Date',
+            //     width: '120px',
+            //     sortable: true,
+            //     type: 'date'
+            // },
+            // {
+            //     key: 'itineraryNumber',
+            //     title: 'Itinerary Number',
+            //     width: '140px',
+            //     sortable: true,
+            //     type: 'string'
+            // },
+            // {
+            //     key: 'deliveryNumber',
+            //     title: 'Delivery Number',
+            //     width: '140px',
+            //     sortable: true,
+            //     type: 'string'
+            // },
+            // {
+            //     key: 'storage',
+            //     title: 'Storage',
+            //     width: '120px',
+            //     sortable: true,
+            //     type: 'string'
+            // },
+            // {
+            //     key: 'level',
+            //     title: 'Level',
+            //     width: '100px',
+            //     sortable: true,
+            //     type: 'string'
+            // },
+            // {
+            //     key: 'commencementDate',
+            //     title: 'Commencement Date',
+            //     width: '150px',
+            //     sortable: true,
+            //     type: 'date'
+            // },
+            // {
+            //     key: 'pricingStartDate',
+            //     title: 'Pricing Start Date',
+            //     width: '150px',
+            //     sortable: true,
+            //     type: 'date'
+            // },
+            // {
+            //     key: 'pricingEndDate',
+            //     title: 'Pricing End Date',
+            //     width: '150px',
+            //     sortable: true,
+            //     type: 'date'
+            // },
+            // {
+            //     key: 'quantityStatus',
+            //     title: 'Quantity Status',
+            //     width: '130px',
+            //     sortable: true,
+            //     type: 'string'
+            // },
+            // {
+            //     key: 'exposure',
+            //     title: 'Exposure',
+            //     width: '100px',
+            //     sortable: true,
+            //     type: 'number'
+            // },
+            // {
+            //     key: 'priceSource',
+            //     title: 'Price Source',
+            //     width: '120px',
+            //     sortable: true,
+            //     type: 'string'
+            // },
+            // {
+            //     key: 'paymentDescription',
+            //     title: 'Payment Description',
+            //     width: '160px',
+            //     sortable: true,
+            //     type: 'string'
+            // }
         ],
         []
     );
