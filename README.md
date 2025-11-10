@@ -1,9 +1,35 @@
 
 
-# Mohammad Nadr Table Grid
+# Mohammad Nadr
+# React Data Table Grid
+### Built with the tools and technologies:
 
-A powerful, feature-rich React data table component built with Ant Design. This component provides advanced functionality for displaying, filtering, sorting, and manipulating tabular data with excellent performance and customization options.
+<p>
+  <img src="https://img.shields.io/badge/JSON-000000?style=for-the-badge&logo=json&logoColor=white" alt="JSON" />
+  <img src="https://img.shields.io/badge/Markdown-000000?style=for-the-badge&logo=markdown&logoColor=white" alt="Markdown" />
+  <img src="https://img.shields.io/badge/npm-CB0000?style=for-the-badge&logo=npm&logoColor=white" alt="npm" />
+  <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=000" alt="JavaScript" />
+  <img src="https://img.shields.io/badge/React-0A7EA4?style=for-the-badge&logo=react&logoColor=white" alt="React" />
+  <img src="https://img.shields.io/badge/Sass-CC6699?style=for-the-badge&logo=sass&logoColor=white" alt="Sass" />
+</p>
 
+## Overview
+
+React-DataTable is a versatile React component library that empowers developers to create sophisticated, interactive data grids with ease. It offers a rich set of features for displaying, sorting, filtering, grouping, and exporting data, all optimized for large and dynamic datasets.
+
+### Why React-DataTable?
+
+This project streamlines complex data management tasks and enhances user experience through a collection of reusable, customizable components. The core features include:
+
+🎯 Advanced Data Handling: Supports sorting, filtering, grouping, and aggregation for comprehensive data analysis.
+
+🧩 Reusable UI Components: Includes modals, context menus, searchable combo boxes, and custom inputs for flexible UI design.
+
+🚀 Performance & Responsiveness: Designed to efficiently render large datasets across various devices and screen sizes.
+
+🔧 Seamless Integration: Built with React and Ant Design, ensuring smooth integration into existing projects.
+
+📊 Data Export & Management: Facilitates exporting data, saving/loading views, and managing complex workflows.
 ## Live Demo
 
 Check out the live demo at: [https://mohammadnadr.github.io/React-DataTable/](https://mohammadnadr.github.io/React-DataTable/)
@@ -16,7 +42,6 @@ Check out the live demo at: [https://mohammadnadr.github.io/React-DataTable/](ht
 - **Advanced Sorting**: Multi-column sorting with custom sort functions
 - **Powerful Filtering**: Column-based filtering with multiple filter types
 - **Row Selection**: Single and multi-row selection with checkboxes
-- **Pagination**: Built-in pagination with customizable page sizes
 
 ### 🎨 Advanced Features
 - **Column Grouping**: Hierarchical grouping with expand/collapse functionality
