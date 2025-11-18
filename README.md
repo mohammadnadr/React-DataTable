@@ -103,6 +103,9 @@ const App = () => {
       columns={columns}
       title="Employee Data"
       loading={false}
+      enableGrouping={true}
+      enableAggregation={true}
+      enableColumnReordering={true}
     />
   );
 };
