@@ -2,13 +2,10 @@
   "name": "react-pro-datagrid",
   "version": "0.2.4",
   "homepage": "https://mohammadnadr.github.io/React-DataTable",
-  "main": "index.js",
-  "module": "index.js",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
   "files": [
-    "index.js",
-    "src/components",
-    "src/components/GenericDataTable.jsx",
-    "src/components/GenericDataTable.scss"
+    "dist"
   ],
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
@@ -23,9 +20,14 @@
     "web-vitals": "^2.1.4",
     "xlsx": "^0.18.5"
   },
+  "peerDependencies": {
+    "react": ">=18 <19",
+    "react-dom": ">=18 <19"
+  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:lib": "babel src/index.js --out-file dist/index.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
@@ -50,7 +52,13 @@
     ]
   },
   "devDependencies": {
+    "@babel/cli": "^7.28.3",
+    "@babel/core": "^7.28.5",
+    "@babel/preset-react": "^7.28.5",
     "gh-pages": "^6.3.0",
-    "sass": "^1.93.2"
+    "sass": "^1.93.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1"
   }
 }
