@@ -64,12 +64,12 @@ Check out the live demo at: [https://mohammadnadr.github.io/React-DataTable/](ht
 
 ### Using npm
 ```bash
-npm install mohammad-nadr-table-grid
+npm install react-pro-datagrid
 ```
 
 ### Using yarn
 ```bash
-yarn add mohammad-nadr-table-grid
+yarn add react-pro-datagrid
 ```
 
 ### Peer Dependencies
@@ -82,7 +82,7 @@ npm install react react-dom antd
 
 ```jsx
 import React from 'react';
-import { GenericDataTable } from 'mohammad-nadr-table-grid';
+import { GenericDataTable } from 'react-pro-datagrid';
 
 const App = () => {
   const data = [
@@ -258,7 +258,7 @@ const handleExport = (data, selectedRows) => {
 
 ### Cash Flow Management
 ```jsx
-import { CashFlowConsole } from 'mohammad-nadr-table-grid';
+import { CashFlowConsole } from 'react-pro-datagrid';
 
 const App = () => {
   return (
@@ -311,12 +311,12 @@ const customButtons = [
 ### SCSS Customization
 Import and override SCSS variables:
 ```scss
-@import '~mohammad-nadr-table-grid/dist/scss/variables';
+@import '~react-pro-datagrid/dist/scss/variables';
 
 $table-header-bg: #your-color;
 $table-font-size: 14px;
 
-@import '~mohammad-nadr-table-grid/dist/scss/main';
+@import '~react-pro-datagrid/dist/scss/main';
 ```
 
 ## Performance Tips
