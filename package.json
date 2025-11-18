@@ -1,6 +1,6 @@
 {
   "name": "react-pro-datagrid",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "homepage": "https://mohammadnadr.github.io/React-DataTable",
   "main": "dist/lib.js",
   "module": "dist/lib.js",
