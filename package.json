@@ -2,8 +2,8 @@
   "name": "react-pro-datagrid",
   "version": "0.2.5",
   "homepage": "https://mohammadnadr.github.io/React-DataTable",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
+  "main": "dist/lib.js",
+  "module": "dist/lib.js",
   "files": [
     "dist"
   ],
@@ -27,7 +27,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "build:lib": "babel src/index.js --out-file dist/index.js",
+    "build:lib": "babel src/lib.js --out-file dist/lib.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
