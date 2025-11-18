@@ -27,7 +27,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "build:lib": "babel src/lib.js --out-file dist/lib.js",
+    "build:lib": "babel src --out-dir dist --extensions \".js,.jsx\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
